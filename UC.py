@@ -25,7 +25,7 @@ class Uc():
         
         self._SoC = 50  # Estado de carga inicial (%)
 
-    def setParams(self, C: float, Ns: int, Np: int, Nm : int, Vnom: float, SoC: float) -> None:
+    def setParams(self, C: float, Ns: int, Np: int, Nm : int, Vnom: float, SoC: float, T_m: int) -> None:
         """Configura os parâmetros do banco de supercapacitores
         :param float C: Capacitância por célula (F)
         :param int Ns: Número de capacitores em série
@@ -33,6 +33,7 @@ class Uc():
         :param int Nm: Número de módulos em série
         :param float Vnom: Tensão nominal por célula (V)
         :param float SoC: Estado de carga inicial do banco (%)
+        :param int T_m: Multiplicador da capacidade do banco
         :raises ValueError: Se os parâmetros forem inválidos
         """
         if any(x <= 0 for x in [C, Ns, Np, Nm, Vnom]):
@@ -47,6 +48,7 @@ class Uc():
         self._Nm = Nm
         self._v_cap = Vnom
         self._SoC = SoC
+        self._T_m = T_m
 
         # Recalcula parâmetros
         self._v_total = self._v_cap * self._Ns * self._Nm
@@ -95,19 +97,23 @@ class Uc():
         return sqrt((SoC * self._total_energy) / (50 * self._C_eq))
     
 
-    def setCurrent(self, power: float) -> (float|float):
+    def setCurrent(self, power: float) -> (float|float|int):
         """
         Calcula corrente baseada na potência requerida
         :param float power: Potência requerida (W)
         :return float i_sat: Corrente (A)
         :return float p_reject: Potência rejeitada (kW)
+        :return int flag: Flag de saturação de corrente
         """
         i = power / self._v_banco
-        i_max = 280 * self._Np                                      # Corrente maxima no banco de UC
+        i_max = 280 * self._Np * self._T_m                          # Corrente maxima no banco de UC
         i_sat = np.clip(i, -i_max, i_max)                           # Limita corrente em ambas direções
         i_reject = i - i_sat                                        # Calcula corrente rejeitada
         p_reject = (i_reject * self._v_banco) / 1000                # Calcula potência rejeitada
-        return i_sat, p_reject
+        flag = 0
+        if i_reject != 0: flag = 1
+        else: flag = 0
+        return i_sat, p_reject, flag
 
 
     def getTotalEnergy(self) -> float:
@@ -118,17 +124,23 @@ class Uc():
         return self._total_energy
     
     
-    def updateEnergy(self, current: float, dt: float) -> tuple[float, float, float, float]:
+    def updateEnergy(self, flag: int, current: float, power: float, dt: float) -> tuple[float, float, float, float]:
         """
         Atualiza energia do banco usando a corrente
+        :param int flag: Flag de saturação de corrente
         :param float current: Corrente do banco (A, + carga, - descarga)
+        :param float power: Potência à ser gerenciada pelo banco
         :param float dt: Intervalo de tempo (s)
         :return tuple[float, float]: (Tensão do banco, Energia armazenada)
         :return float p_reject: Potência rejeitada (kW)
         :return float i_uc: Verdadeira corrente do banco (A)
         """
-        # Calcula variação de energia (P = V*I)
-        energy_variation = -1 * self._v_banco * current * dt
+        # Calcula variação de energia (P = V*I) para o caso em que há saturação de corrente
+        # Caso contrario, utiliza o threshold de potência para atualizar a energia
+        if flag == 0:
+            energy_variation = power * dt / 3600
+        else:
+            energy_variation = -1 * self._v_banco * current * dt
         # print(f'DEBUG: energy_variation = {energy_variation}')
         
         # Calcula nova energia

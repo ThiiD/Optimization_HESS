@@ -11,6 +11,8 @@ class Simulation():
         """Método para calcular o fluxo de potência do caminhão."""
         self.fig_width_cm = 24/2.4
         self.fig_height_cm = 18/2.4
+
+        self._dt = 1                # Periodo de amostragem do sinal (s)
         
         # Dados da bateria
         self._SoC = []
@@ -31,7 +33,9 @@ class Simulation():
         self._uc = Uc()
         self._batt = Batt()
 
-    def setParam_Batt(self, C: float, Ns: int, Np: int, Nm: int, Vnom: float, SoC: float) -> None:
+        
+
+    def setParam_Batt(self, C: float, Ns: int, Np: int, Nm: int, Vnom: float, SoC: float, T_m: int) -> None:
         """
         Configura parâmetros da bateria
         :param float C: Taxa de descarga da bateria (Ah)
@@ -40,6 +44,7 @@ class Simulation():
         :param int Nm: Número de módulos
         :param float Vnom: Tensão nominal por célula (V)
         :param float SoC: Estado de carga inicial da bateria (%)
+        :param int T_m: Multiplicador da capacidade do banco
         :raises ValueError: Se os parâmetros forem inválidos
         """
         self._batt_params = {
@@ -48,11 +53,12 @@ class Simulation():
             'Np': Np,
             'Nm': Nm,
             'Vnom': Vnom,
-            'SoC': SoC
+            'SoC': SoC,
+            'T_m': T_m
         }
-        self._batt.setParams(C, Ns, Np, Nm, Vnom, SoC)
+        self._batt.setParams(C, Ns, Np, Nm, Vnom, SoC, T_m)
 
-    def setParam_UC(self, C: float, Ns: int, Np: int, Nm : int, Vnom: float, SoC: float) -> None:
+    def setParam_UC(self, C: float, Ns: int, Np: int, Nm : int, Vnom: float, SoC: float, T_m: int) -> None:
         """Configura parâmetros do supercapacitor
         :param float C: Capacitância do supercapacitor (F)
         :param int Ns: Número de supercapacitores em série
@@ -60,6 +66,7 @@ class Simulation():
         :param int Nm: Número de módulos
         :param float Vnom: Tensão nominal do supercapacitor (V)
         :param float SoC: Estado de carga inicial do supercapacitor (%)
+        :param int T_m: Multiplicador da capacidade do banco
         """
         self._uc_params = {
             'C': C,
@@ -67,9 +74,10 @@ class Simulation():
             'Np': Np,
             'Nm': Nm,
             'Vnom': Vnom,
-            'SoC': SoC
+            'SoC': SoC,
+            'T_m': T_m
         }
-        self._uc.setParams(C, Ns, Np, Nm, Vnom, SoC)
+        self._uc.setParams(C, Ns, Np, Nm, Vnom, SoC, T_m)
 
     def plot_power_distribution(self, data, powers):
         """Plota distribuição de potência"""
@@ -158,7 +166,8 @@ class Simulation():
         """
         data = pd.read_excel(data, sheet_name=sheet)
         data["Time"] = range(0, len(data))
-        powers = data['Traction Power'] - data["Braking Power"]
+        if sheet == "Dados":            powers = data['Traction Power'] - data["Braking Power"]
+        if sheet == "Log":              powers = (data['fa00_altoutvolts'] * data['fa08_m2amps']) / 1000
         
         # Plota distribuição de potência
         #self.plot_power_distribution(data, powers)
@@ -171,13 +180,13 @@ class Simulation():
             power_bat, power_uc = self.supervisory_control(power, threshold)
             
             # Atualiza bateria
-            i_bat, p_bat_reject_1 = self._batt.setCurrent(power_bat)
-            SoC, v_banco_bat, p_bat_reject_2 = self._batt.updateEnergy(i_bat, 1)
+            i_bat, p_bat_reject_1, flag = self._batt.setCurrent(power_bat)
+            SoC, v_banco_bat, p_bat_reject_2 = self._batt.updateEnergy(flag, i_bat, power_bat, self._dt)
             p_bat_reject = p_bat_reject_1 + p_bat_reject_2
             
             # Atualiza supercapacitor
-            i_uc, p_uc_reject_1 = self._uc.setCurrent(power_uc)
-            SoC_uc, v_banco_uc, p_uc_reject_2, i_uc = self._uc.updateEnergy(i_uc, 1)
+            i_uc, p_uc_reject_1, flag = self._uc.setCurrent(power_uc)
+            SoC_uc, v_banco_uc, p_uc_reject_2, i_uc = self._uc.updateEnergy(flag, i_uc, power_uc, self._dt)
             p_uc_reject = p_uc_reject_1 + p_uc_reject_2
 
             p_reject = p_bat_reject + p_uc_reject
@@ -225,13 +234,13 @@ class Simulation():
             power_bat, power_uc = self.supervisory_control(power / 1000, threshold)  # supervisory_control espera kW
 
             # Atualiza bateria
-            i_bat, p_bat_reject_1 = self._batt.setCurrent(power_bat)
-            SoC, v_banco_bat, p_bat_reject_2 = self._batt.updateEnergy(i_bat, 1)
+            i_bat, p_bat_reject_1, flag = self._batt.setCurrent(power_bat)
+            SoC, v_banco_bat, p_bat_reject_2 = self._batt.updateEnergy(flag, i_bat, power_bat, self._dt)
             p_bat_reject = p_bat_reject_1 + p_bat_reject_2
 
             # Atualiza supercapacitor
-            i_uc, p_uc_reject_1 = self._uc.setCurrent(power_uc)
-            SoC_uc, v_banco_uc, p_uc_reject_2, i_uc = self._uc.updateEnergy(i_uc, 1)
+            i_uc, p_uc_reject_1, flag = self._uc.setCurrent(power_uc)
+            SoC_uc, v_banco_uc, p_uc_reject_2, i_uc = self._uc.updateEnergy(flag, i_uc, power_uc, self._dt)
             p_uc_reject = p_uc_reject_1 + p_uc_reject_2
 
             p_reject = p_bat_reject + p_uc_reject

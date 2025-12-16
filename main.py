@@ -33,8 +33,8 @@ cot_dolar = 5.57            # 22/07/2025
 Pb_usd = 28.00              # Preço da bateria em dolares (Fonte: data_sources.xlsx)
 Puc_usd = 53.75             # Preço do supercapacitor em dolares (Fonte: data_sources.xlsx)
 
-Pb = Pb_usd #* cot_dolar     # Preço da bateria em reais
-Puc = Puc_usd #* cot_dolar   # Preço do supercapacitor em reais
+Pb = Pb_usd * cot_dolar     # Preço da bateria em reais
+Puc = Puc_usd * cot_dolar   # Preço do supercapacitor em reais
 
 Vb = 0.596                  # Volume da bateria em L (Fonte: data_sources.xlsx)
 Vuc = 0.00837               # Volume do supercapacitor em L (Fonte: data_sources.xlsx)
@@ -112,10 +112,10 @@ class MyProblem(ElementwiseProblem):
         cache_key = (Np_b, Np_uc)
         if cache_key not in self.simulation_cache:
             sim = Simulation()
-            sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.2, SoC=50)
-            sim.setParam_UC(C=3400, Ns=Ns_uc, Np=Np_uc, Nm=Nm_uc, Vnom=3, SoC=50)
+            sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.2, SoC=50, T_m = T_xb)
+            sim.setParam_UC(C=3400, Ns=Ns_uc, Np=Np_uc, Nm=Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
             data = r"data\CR-3112_28-09-24_AGGREGATED.xlsx"
-            sheet = "Dados"
+            sheet = "Log"
             sim.simulate(data, sheet, threshold=1000)
             energia_rejeitada = sum(sim._p_reject) / 3600  # Wh
             # Energia absorvida é a soma das potências negativas (absorvidas) pelos sistemas
@@ -263,10 +263,10 @@ best_Np_uc = int(round(X[idx_best, 1]))
 
 # Rodar a simulação para a melhor solução
 sim = Simulation()
-sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=best_Np_b, Nm=Nm_b, Vnom=3.2, SoC=50)
-sim.setParam_UC(C=3400, Ns=Ns_uc, Np=best_Np_uc, Nm=Nm_uc, Vnom=3, SoC=50)
+sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=best_Np_b, Nm=Nm_b, Vnom=3.2, SoC=50, T_m=T_xb)
+sim.setParam_UC(C=3400, Ns=Ns_uc, Np=best_Np_uc, Nm=Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
 data = r"data\CR-3112_28-09-24_AGGREGATED.xlsx"
-sheet = "Dados"
+sheet = "Log"
 
 # Carregar dados do Excel para plotar potência, corrente e tensão de entrada
 import pandas as pd
@@ -432,8 +432,10 @@ pot_sistema = input_df["fa08_m2amps"] * input_df["fa00_altoutvolts"] / 1000  # k
 plt.plot(time, pot_sistema, label='Potência Sistema (Diesel) [kW]', color='black')
 
 # Soma das potências simuladas (bateria + supercapacitor + rejeitada)
-pot_simulada = (np.array(sim._p_batt) + np.array(sim._p_uc) - np.array(p_rej_total) * 1000) / 1e3  # kW
+pot_simulada = (np.array(sim._p_batt) + np.array(sim._p_uc) + np.array(p_rej_total) * 1000) / 1e3  # kW
+pot_simulada_2 = (np.array(sim._p_batt) + np.array(sim._p_uc)) / 1e3  # kW
 plt.plot(sim_time, pot_simulada, label='Potência Administrada Total [kW]', color='tab:blue', linestyle='--')
+plt.plot(sim_time, pot_simulada_2, label='Potência Bateria + Supercapacitor [kW]', color='tab:red', linestyle='--')
 
 plt.ylabel('Potência [kW]')
 plt.xlabel('Amostra')
