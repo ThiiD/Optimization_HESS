@@ -11,6 +11,8 @@ from simulation import Simulation
 preco_diesel = 6.00  # R$/litro
 rendimento_diesel = 3.0  # kWh/litro
 
+preco_razao_elepot = 1      # Razao $/W
+
 taxa_disponibilidade = 0.8  # 80% de disponibilidade diária
 duracao_ciclo_horas = 0.5  # 30 minutos por ciclo
 
@@ -104,9 +106,10 @@ class MyProblem(ElementwiseProblem):
         # Cálculo do número total de componentes
         total_baterias = Np_b * Nm_b * Ns_b
         total_supercaps = Np_uc * Nm_uc * Ns_uc
+        total_elepot = 2000
 
         # Cálculo do custo inicial (investimento)
-        custo_inicial = (total_baterias * Pb + total_supercaps * Puc)
+        custo_inicial = (total_baterias * Pb) + (total_supercaps * Puc) + (total_elepot * preco_razao_elepot * 1000)
 
         # Simulação para calcular energia rejeitada
         cache_key = (Np_b, Np_uc)
@@ -148,27 +151,53 @@ class MyProblem(ElementwiseProblem):
         vida_util_bateria_meses = ciclos_bateria_vida / self.ciclos_por_mes if self.ciclos_por_mes > 0 else horizonte_analise_meses
         vida_util_supercap_meses = horas_supercap_vida / (horas_operacao_dia * dias_por_mes) if horas_operacao_dia > 0 else horizonte_analise_meses
 
-        # Fluxo de caixa mensal
+        # Fluxo de caixa mensal e variaveis
         fluxo_caixa = []
+        saude_bat = []                     
+        troca_bat = []                     
+        saude_uc = []                      
+        troca_uc = []                      
         mes = 0
         custo_bateria = total_baterias * Pb
         custo_supercap = total_supercaps * Puc
-        proximo_reinv_bat = vida_util_bateria_meses                                # Essa parte não funciona direito ainda, deveria ser o calculo de quando a bateria deveria ser trocada
-        proximo_reinv_uc = vida_util_supercap_meses                                # Essa parte não funciona direito ainda, deveria ser o calculo de quando o supercapacitor deveria ser trocado
+
+        # Analise financeira mensal
         while mes < horizonte_analise_meses:
+            balanco_mes = 0
             if mes == 0:
                 fluxo_caixa.append(-custo_inicial)  # Investimento inicial
+                saude_bat.append(1)                 # Saude da bateria em 100% no mes 0
+                troca_bat.append(0)                 # Nao a troca da bateria no mes 0 (saida ja realizada no custo inicial)
+                saude_uc.append(1)                  # Saude do UC em 100% no mes 0
+                troca_uc.append(0)                  # Nao ha troca de UC no mes 0 (saida ja realizada no custo inicial)
+
             else:
-                # Substituição de bateria
-                if abs(mes - proximo_reinv_bat) < 1e-6:
-                    fluxo_caixa.append(-custo_bateria)
-                    proximo_reinv_bat += vida_util_bateria_meses
-                # Substituição de supercap
-                elif abs(mes - proximo_reinv_uc) < 1e-6:
-                    fluxo_caixa.append(-custo_supercap)
-                    proximo_reinv_uc += vida_util_supercap_meses
+                balanco_mes += economia_mensal
+
+                # Verifica substituição da bateria
+                saude_bat_mensal = saude_bat[-1] - (0.2*self.ciclos_por_mes/ciclos_bateria_vida)
+                if saude_bat_mensal <= 0.8:
+                    saude_bat_mensal = 1
+                    saude_bat.append(saude_bat_mensal)
+                    troca_bat.append(1)
+                    balanco_mes += -custo_bateria
                 else:
-                    fluxo_caixa.append(economia_mensal)
+                    saude_bat.append(saude_bat_mensal)
+                    troca_bat.append(0)
+
+                # Verifica substituição do supercapacitor
+                saude_uc_mensal = saude_uc[-1] - (0.2*self.ciclos_por_mes*duracao_ciclo_horas/horas_supercap_vida)
+                if saude_uc_mensal <= 0.8:
+                    saude_uc_mensal = 1
+                    saude_uc.append(saude_uc_mensal)
+                    troca_uc.append(1)
+                    balanco_mes += -custo_supercap
+                else:
+                    saude_uc.append(saude_uc_mensal)
+                    troca_uc.append(0)
+
+        
+                fluxo_caixa.append(balanco_mes)
             mes += 1
 
         # Cálculo do VPL
@@ -186,6 +215,8 @@ class MyProblem(ElementwiseProblem):
         # Armazenar o fluxo de caixa se for a melhor solução até agora
         if not hasattr(self, 'melhor_vpl') or vpl > self.melhor_vpl:
             self.melhor_vpl = vpl
+            self.saude_bat = saude_bat
+            self.saude_uc = saude_uc
             self.melhor_fluxo_caixa = fluxo_caixa.copy()
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -465,18 +496,20 @@ else:
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------- Gráfico de Degradação da Bateria ----------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
-horas_operacao_dia = 24 * taxa_disponibilidade
-ciclos_por_dia = horas_operacao_dia / duracao_ciclo_horas
-ciclos_por_mes = ciclos_por_dia * dias_por_mes
-capacidade_bateria = np.ones(horizonte_analise_meses)                       # Cria um vetor para análisar mes a mes a saude da bateria
-for i in range(horizonte_analise_meses):
-    porcentagem_de_ciclos = (i * ciclos_por_mes) / ciclos_bateria_vida                                        
-    if porcentagem_de_ciclos <= 1:
-        capacidade_bateria[i] = 1 - 0.2 * porcentagem_de_ciclos                               # Linear até 80%
-    else:
-        capacidade_bateria[i] = 0.8  # Após vida útil, mantém 80%
+# horas_operacao_dia = 24 * taxa_disponibilidade
+# ciclos_por_dia = horas_operacao_dia / duracao_ciclo_horas
+# ciclos_por_mes = ciclos_por_dia * dias_por_mes
+# capacidade_bateria = np.ones(horizonte_analise_meses)                       # Cria um vetor para análisar mes a mes a saude da bateria
+# print(f'horizonte_analise_meses: {horizonte_analise_meses}')
+# for i in range(horizonte_analise_meses):
+#     porcentagem_de_ciclos = (i * ciclos_por_mes) / ciclos_bateria_vida                                        
+#     if porcentagem_de_ciclos <= 1:
+#         capacidade_bateria[i] = 1 - 0.2 * porcentagem_de_ciclos                               # Linear até 80%
+#     else:
+#         capacidade_bateria[i] = 1  # Após vida útil, mantém 80%
 plt.figure(figsize=(10, 4))
-plt.plot(np.arange(horizonte_analise_meses), capacidade_bateria * 100)
+print(problem.saude_bat)
+plt.step(np.arange(horizonte_analise_meses), np.array(problem.saude_bat) * 100, where="post")
 plt.title('Degradação da Bateria ao Longo do Tempo')
 plt.xlabel('Meses')
 plt.ylabel('Capacidade Residual (%)')
@@ -498,6 +531,7 @@ for i in range(horizonte_analise_meses):
 print(capacidade_supercap)
 plt.figure(figsize=(10, 4))
 plt.plot(np.arange(horizonte_analise_meses), capacidade_supercap, color='orange')
+plt.plot(np.arange(horizonte_analise_meses), np.array(problem.saude_uc) * 100, color='blue')
 plt.title('Degradação do Supercapacitor ao Longo do Tempo')
 plt.xlabel('Meses')
 plt.ylabel('Capacidade Residual (%)')
