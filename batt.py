@@ -1,7 +1,11 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 class Batt():
+    fig_width_cm = 24/2.4
+    fig_height_cm = 18/2.4
+
     def __init__(self):
         """Inicializa uma bateria com valores padrão"""
         self._C = 40
@@ -16,6 +20,20 @@ class Batt():
         self._v_banco = self._v_cel * self._Ns * self._Nm
         self._total_energy = (self._Np * self._C) * (self._Ns * self._Nm * self._Vnom)              # Wh
         self._SoC_Energy = (self._SoC/100) * self._total_energy
+        self._configure_plots()
+
+    def _configure_plots(self):
+        plt.rcParams.update({
+            "text.usetex": True,
+            "font.family": "serif",
+            "font.serif": ["Computer Modern Roman"], # Or other serif font
+            "axes.labelsize": 18,
+            "axes.labelweight": "bold",
+            "font.size": 18,
+            "legend.fontsize": 16,
+            "xtick.labelsize": 16,
+            "ytick.labelsize": 16,
+        })
 
     def setParams(self, C: float, Ns: int, Np: int, Nm: int, Vnom: float, SoC: float, T_m: int) -> None:
         """
@@ -62,6 +80,43 @@ class Batt():
         except Exception as e:
             print(f"Erro ao ler LUT: {e}")
             return self._Vnom  # Retorna tensão nominal em caso de erro
+        
+
+    def batteryHealth(self, cycles_used: int, maximum_cycles: int) -> float:
+        """
+        Calcula a saúde da bateria baseado no número de ciclos usados
+        :param int cycles_used: Número de ciclos usados
+        :param int maximum_cycles: Número máximo de ciclos antes da falha
+        :return float: Saúde da bateria (%)
+        """
+        try:
+            df = pd.read_csv("data\\LUT_saude_batt.csv", sep=";")
+            indice_proximo = (df['Ciclos'] - (cycles_used % maximum_cycles)).abs().idxmin()
+            health = df.loc[indice_proximo, 'Saude']
+            print(f"Saúde da bateria: {indice_proximo} ; {health}%")
+            return float(health)
+        except Exception as e:
+            print("Erro ao ler LUT de saúde da bateria:", e)
+            return e
+
+    def plotBatteryHealthGraph(self):
+        """
+        Plota o gráfico de saúde da bateria
+        """
+        try:
+            df = pd.read_csv("data\\LUT_saude_batt.csv", sep=";")
+            plt.figure(figsize=(self.fig_width_cm, self.fig_height_cm/1.5))
+            plt.plot(df['Ciclos'], df['Saude'], color = 'tab:blue', linewidth = 2, label = "Saúde da bateria")
+            plt.grid()
+            plt.xlim([0,5500])
+            plt.ylim([60, 100])
+            plt.xlabel("Número de Ciclos")
+            plt.ylabel(r"Saúde da bateria [\%]")
+            plt.title("Saúde da bateria por ciclos")
+            plt.tight_layout()
+            plt.show()
+        except Exception as e:
+            print("Erro ao plotar gráfico de saúde da bateria:", e)
 
     def Energy2SoC(self, energy: float) -> float:
         """
@@ -147,3 +202,10 @@ class Batt():
         self._v_banco = self._Ns * self._Nm * self.LUT(self._SoC)
         
         return self._SoC, self._v_banco, p_reject
+
+
+if __name__ == "__main__":
+    batt = Batt()
+    batt.setParams(40, 16, 3, 24, 3.25, 50, 10)
+    batt.batteryHealth(2000, 5500)
+    batt.plotBatteryHealthGraph()

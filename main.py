@@ -7,6 +7,18 @@ from pymoo.core.problem import ElementwiseProblem
 
 from simulation import Simulation
 
+# plt.rcParams.update({
+#     "text.usetex": True,
+#     "font.family": "serif",
+#     "font.serif": ["Computer Modern Roman"], # Or other serif font
+#     "axes.labelsize": 18,
+#     "axes.labelweight": "bold",
+#     "font.size": 18,
+#     "legend.fontsize": 16,
+#     "xtick.labelsize": 16,
+#     "ytick.labelsize": 16,
+# })
+
 # Parâmetros financeiros e operacionais
 preco_diesel = 6.00  # R$/litro
 rendimento_diesel = 3.0  # kWh/litro
@@ -19,8 +31,8 @@ duracao_ciclo_horas = 0.5  # 30 minutos por ciclo
 dias_por_mes = 30  # Considerando 30 dias por mês
 
 # Degradação dos componentes
-ciclos_bateria_vida = 10000  # ciclos até 80% da capacidade
-horas_supercap_vida = 100000  # horas até 80% da capacidade
+ciclos_bateria_vida = 5300  # ciclos até 80% da capacidade (Baseado no datasheet da bateria)
+horas_supercap_vida = 1000000  # horas até 80% da capacidade (Baseado no datasheet do supercapacitor)
 
 # Parâmetros financeiros para VPL
 horizonte_analise_meses = 12  # 10 anos
@@ -158,6 +170,7 @@ class MyProblem(ElementwiseProblem):
         saude_uc = []                      
         troca_uc = []                      
         mes = 0
+        numero_ciclos_batt = 0
         custo_bateria = total_baterias * Pb
         custo_supercap = total_supercaps * Puc
 
@@ -175,8 +188,15 @@ class MyProblem(ElementwiseProblem):
                 balanco_mes += economia_mensal
 
                 # Verifica substituição da bateria
+                #numero_ciclos_batt += round(((max(sim._SoC) - min(sim._SoC)) / 100) * self.ciclos_por_mes)      # Baliza o numero de ciclos da bateria conforme DoD
+                #numero_ciclos_batt += self.ciclos_por_mes                                                       # Considera cada ciclo de operação um ciclo completo pra bateria
+
+                
+                #saude_bat_mensal = sim._batt.batteryHealth(numero_ciclos_batt, ciclos_bateria_vida) / 100
+                #print(f"Número de ciclos da bateria: {numero_ciclos_batt}   ;   Saúde da bateria: {saude_bat_mensal*100}%")
                 saude_bat_mensal = saude_bat[-1] - (0.2*self.ciclos_por_mes/ciclos_bateria_vida)
                 if saude_bat_mensal <= 0.8:
+                # if numero_ciclos_batt % ciclos_bateria_vida > sum(troca_bat):
                     saude_bat_mensal = 1
                     saude_bat.append(saude_bat_mensal)
                     troca_bat.append(1)
@@ -514,28 +534,29 @@ plt.title('Degradação da Bateria ao Longo do Tempo')
 plt.xlabel('Meses')
 plt.ylabel('Capacidade Residual (%)')
 plt.ylim(75, 105)
+plt.xlim(0, horizonte_analise_meses)
 plt.grid()
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------- Gráfico de Degradação do Supercapacitor ------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
-horas_operacao_mes = 24 * taxa_disponibilidade * dias_por_mes
-capacidade_supercap = np.ones(horizonte_analise_meses)
-for i in range(horizonte_analise_meses):
-    horas = 100 - 100*((i * horas_operacao_mes) / horas_supercap_vida)
-    if horas <= 0:
-        capacidade_supercap[i] = 0
-    else:
-        capacidade_supercap[i] = horas
-print(capacidade_supercap)
+# horas_operacao_mes = 24 * taxa_disponibilidade * dias_por_mes
+# capacidade_supercap = np.ones(horizonte_analise_meses)
+# for i in range(horizonte_analise_meses):
+#     horas = 100 - 100*((i * horas_operacao_mes) / horas_supercap_vida)
+#     if horas <= 0:
+#         capacidade_supercap[i] = 0
+#     else:
+#         capacidade_supercap[i] = horas
+# print(capacidade_supercap)
 plt.figure(figsize=(10, 4))
-plt.plot(np.arange(horizonte_analise_meses), capacidade_supercap, color='orange')
-plt.plot(np.arange(horizonte_analise_meses), np.array(problem.saude_uc) * 100, color='blue')
+plt.step(np.arange(horizonte_analise_meses), np.array(problem.saude_uc) * 100, color='tab:blue', where="post")
 plt.title('Degradação do Supercapacitor ao Longo do Tempo')
 plt.xlabel('Meses')
 plt.ylabel('Capacidade Residual (%)')
 plt.ylim(75, 105)
+plt.xlim(0, horizonte_analise_meses)
 plt.grid()
 plt.show(block=True)
 
