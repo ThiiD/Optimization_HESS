@@ -435,12 +435,12 @@ fig, axs = plt.subplots(3, 2, figsize=(14, 8), sharex=True)
 
 # Linha 1: SoC
 axs[0, 0].plot(sim_time, sim._SoC, color='tab:blue', label='SoC Bateria')
-axs[0, 0].set_ylabel('SoC Bateria [%]')
+axs[0, 0].set_ylabel('SoC Bateria [\%]')
 axs[0, 0].legend(loc='upper right')
 axs[0, 0].grid()
 
 axs[0, 1].plot(sim_time, sim._SoC_UC, color='tab:blue', label='SoC Supercapacitor')
-axs[0, 1].set_ylabel('SoC UC [%]')
+axs[0, 1].set_ylabel('SoC UC [\%]')
 axs[0, 1].legend(loc='upper right')
 axs[0, 1].grid()
 
@@ -532,7 +532,7 @@ print(problem.saude_bat)
 plt.step(np.arange(horizonte_analise_meses), np.array(problem.saude_bat) * 100, where="post")
 plt.title('Degradação da Bateria ao Longo do Tempo')
 plt.xlabel('Meses')
-plt.ylabel('Capacidade Residual (%)')
+plt.ylabel('Capacidade Residual (\%)')
 plt.ylim(75, 105)
 plt.xlim(0, horizonte_analise_meses)
 plt.grid()

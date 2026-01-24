@@ -60,6 +60,27 @@ class Uc():
 
         self._v_banco = sqrt((2 * self._stored_energy) / self._C_eq)
         
+
+    # def plotUCHealthGraph(self):
+    # """
+    # Plota o gráfico de saúde da bateria
+    # """
+    # try:
+    #     df = pd.read_csv("data\\LUT_saude_batt.csv", sep=";")
+    #     df.sort_values(by='Ciclos', inplace=True)
+    #     plt.figure(figsize=(self.fig_width_cm, self.fig_height_cm/1.5))
+    #     plt.plot(df['Ciclos'], df['Saude'], color = 'tab:blue', linewidth = 2, label = "Saúde da bateria")
+    #     plt.grid()
+    #     plt.xlim([0,5300])
+    #     plt.ylim([60, 100])
+    #     plt.xlabel("Número de Ciclos")
+    #     plt.ylabel(r"Saúde da bateria [\%]")
+    #     plt.title("Saúde da bateria por ciclos")
+    #     plt.tight_layout()
+    #     plt.savefig("Figuras\\curva_degradacao_bateria.pdf", dpi=300, bbox_inches='tight')
+    #     plt.show()
+    # except Exception as e:
+    #     print("Erro ao plotar gráfico de saúde da bateria:", e)
         
         
 
