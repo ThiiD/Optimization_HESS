@@ -1,8 +1,11 @@
 import numpy as np
 from time import sleep
 from math import sqrt
+import matplotlib.pyplot as plt
 
 class Uc():
+    fig_width_cm = 24/2.4
+    fig_height_cm = 18/2.4
     def __init__(self):
         """Inicializa um banco de supercapacitores com valores padrão"""
         self._C = 3140                                                              
@@ -24,6 +27,20 @@ class Uc():
         self._stored_energy = 0.5 * self._C_eq * (self._v_banco**2)
         
         self._SoC = 50  # Estado de carga inicial (%)
+        self._configure_plots()
+
+    def _configure_plots(self):
+        plt.rcParams.update({
+            "text.usetex": True,
+            "font.family": "serif",
+            "font.serif": ["Computer Modern Roman"], # Or other serif font
+            "axes.labelsize": 18,
+            "axes.labelweight": "bold",
+            "font.size": 18,
+            "legend.fontsize": 16,
+            "xtick.labelsize": 16,
+            "ytick.labelsize": 16,
+        })
 
     def setParams(self, C: float, Ns: int, Np: int, Nm : int, Vnom: float, SoC: float, T_m: int) -> None:
         """Configura os parâmetros do banco de supercapacitores
@@ -61,26 +78,42 @@ class Uc():
         self._v_banco = sqrt((2 * self._stored_energy) / self._C_eq)
         
 
-    # def plotUCHealthGraph(self):
-    # """
-    # Plota o gráfico de saúde da bateria
-    # """
-    # try:
-    #     df = pd.read_csv("data\\LUT_saude_batt.csv", sep=";")
-    #     df.sort_values(by='Ciclos', inplace=True)
-    #     plt.figure(figsize=(self.fig_width_cm, self.fig_height_cm/1.5))
-    #     plt.plot(df['Ciclos'], df['Saude'], color = 'tab:blue', linewidth = 2, label = "Saúde da bateria")
-    #     plt.grid()
-    #     plt.xlim([0,5300])
-    #     plt.ylim([60, 100])
-    #     plt.xlabel("Número de Ciclos")
-    #     plt.ylabel(r"Saúde da bateria [\%]")
-    #     plt.title("Saúde da bateria por ciclos")
-    #     plt.tight_layout()
-    #     plt.savefig("Figuras\\curva_degradacao_bateria.pdf", dpi=300, bbox_inches='tight')
-    #     plt.show()
-    # except Exception as e:
-    #     print("Erro ao plotar gráfico de saúde da bateria:", e)
+    def plotUCHealthGraph(self):
+        try:
+            n_ciclos = np.linspace(0, 1000000, 100000)
+            print("n_ciclos:", n_ciclos)
+            cte_degradation = -2.23e-7
+            
+            
+            uc_health = 100 * np.exp(cte_degradation * n_ciclos)
+            print(f'uc_health: {uc_health}')
+            plt.figure(figsize = (self.fig_width_cm, self.fig_height_cm/1.5))
+            plt.plot(n_ciclos, uc_health, linewidth = 2, color = 'tab:blue')
+            plt.xlabel("Número de Ciclos")
+            plt.ylabel(r"Saúde do Supercapacitor (\%)")
+            plt.title("Saúde do Supercapacitor por Ciclos")
+            plt.grid()
+            plt.xlim([0, 1000000])
+            plt.ylim([80, 100])
+            plt.tight_layout()
+            plt.savefig("Figuras\\curva_degradacao_uc.pdf", dpi=300, bbox_inches='tight')
+            plt.show()
+
+            # df = pd.read_csv("data\\LUT_saude_batt.csv", sep=";")
+            # df.sort_values(by='Ciclos', inplace=True)
+            # plt.figure(figsize=(self.fig_width_cm, self.fig_height_cm/1.5))
+            # plt.plot(df['Ciclos'], df['Saude'], color = 'tab:blue', linewidth = 2, label = "Saúde da bateria")
+            # plt.grid()
+            # plt.xlim([0,5300])
+            # plt.ylim([60, 100])
+            # plt.xlabel("Número de Ciclos")
+            # plt.ylabel(r"Saúde da bateria [\%]")
+            # plt.title("Saúde da bateria por ciclos")
+            # plt.tight_layout()
+            # plt.savefig("Figuras\\curva_degradacao_bateria.pdf", dpi=300, bbox_inches='tight')
+            # plt.show()
+        except Exception as e:
+            print("Erro ao plotar gráfico de saúde do supercapacitor:", e)
         
         
 
@@ -199,3 +232,9 @@ class Uc():
         # sleep(1)
         
         return self._SoC, self._v_banco, p_reject, i_uc
+    
+
+
+if __name__ == "__main__":
+    uc = Uc()
+    uc.plotUCHealthGraph()

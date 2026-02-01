@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pymoo.core.problem import ElementwiseProblem
 from pymoo.algorithms.moo.nsga2 import NSGA2
+import os
 
 from pymoo.core.problem import ElementwiseProblem
 
@@ -18,6 +19,9 @@ from simulation import Simulation
 #     "xtick.labelsize": 16,
 #     "ytick.labelsize": 16,
 # })
+
+fig_width_cm = 24/2.4
+fig_height_cm = 18/2.4
 
 # Parâmetros financeiros e operacionais
 preco_diesel = 6.00  # R$/litro
@@ -111,6 +115,11 @@ class MyProblem(ElementwiseProblem):
                          type_var=np.int64)  # Especificando que as variáveis são inteiros
         self.simulation_cache = {}
 
+    def setData(self, data: str, sheet: str):
+        self._data = data
+        self._sheet = sheet
+
+
     def _evaluate(self, x, out, *args, **kwargs):
         Np_b = int(round(x[0]))   # Número de baterias em paralelo
         Np_uc = int(round(x[1]))  # Número de supercapacitores em paralelo
@@ -129,9 +138,9 @@ class MyProblem(ElementwiseProblem):
             sim = Simulation()
             sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.2, SoC=50, T_m = T_xb)
             sim.setParam_UC(C=3400, Ns=Ns_uc, Np=Np_uc, Nm=Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
-            data = r"data\CR-3112_28-09-24_AGGREGATED.xlsx"
-            sheet = "Log"
-            sim.simulate(data, sheet, threshold=1000)
+            # data = r"data\CR-3112_28-09-24_AGGREGATED.xlsx"
+            # sheet = "Log"
+            sim.simulate(self._data, self._sheet, threshold=1000)
             energia_rejeitada = sum(sim._p_reject) / 3600  # Wh
             # Energia absorvida é a soma das potências negativas (absorvidas) pelos sistemas
             p_batt_arr = np.array(sim._p_batt)
@@ -244,6 +253,12 @@ class MyProblem(ElementwiseProblem):
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
 problem = MyProblem()
+arquivo = "CR-3112_28-09-24_AGGREGATED.xlsx"
+diretorio_figuras = "Figuras/" + arquivo.split(".")[0]
+os.makedirs(diretorio_figuras, exist_ok=True)
+data = "data/" + arquivo
+sheet = "Log"
+problem.setData(data, sheet)
 
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.operators.sampling.rnd import IntegerRandomSampling
@@ -283,7 +298,7 @@ print(f'F: {F}')
 # ----------------------------------------------- Visualização do espaço de design -------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
-plt.figure(figsize=(7, 5))
+plt.figure(figsize=(fig_width_cm, fig_height_cm/2))
 X_int = np.round(X).astype(int)
 plt.scatter(X_int[:, 0], X_int[:, 1], s=30, facecolors='r', edgecolors='r', zorder=3)
 plt.xlabel('Número de Baterias em Paralelo')
@@ -294,6 +309,10 @@ plt.xticks(np.arange(1, 11, 1))
 plt.yticks(np.arange(1, 11, 1))
 plt.xlim(problem.xl[0]-1, problem.xu[0]+1)
 plt.ylim(problem.xl[1]-1, problem.xu[1]+1)
+plt.tight_layout()
+plt.savefig(diretorio_figuras + "/" f"{arquivo}_design_space.pdf", bbox_inches='tight')
+plt.show(block=False)
+
 
 # Imprimir resultados
 print("\nResultados da Otimização:")
@@ -343,7 +362,7 @@ time = np.arange(len(input_df))
 # ----------------------------------------------- Gráfico de Potência, Corrente e Tensão de Entrada -------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------------------------------------  
 
-fig, axs = plt.subplots(3, 1, figsize=(12, 6), sharex=True)
+fig, axs = plt.subplots(3, 1, figsize=(fig_width_cm, fig_height_cm*1.2), sharex=True)
 axs[0].plot(time, input_df["fa08_m2amps"] * input_df["fa00_altoutvolts"]/1000, label='Potência [kW]')
 axs[0].set_ylabel('Potência [kW]')
 axs[0].grid()
@@ -363,6 +382,7 @@ axs[2].grid()
 axs[2].legend(loc='upper right')
 
 plt.tight_layout()
+plt.savefig(diretorio_figuras + "/" f"{arquivo}_power_current_voltage.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -370,7 +390,7 @@ plt.show(block=False)
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
 sim_time = np.arange(len(sim._p_batt))
-fig, axs = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
+fig, axs = plt.subplots(3, 1, figsize=(fig_width_cm, fig_height_cm*1.2), sharex=True)
 
 # Potência em kW
 p_batt_kw = np.array(sim._p_batt) / 1e3
@@ -425,22 +445,23 @@ axs[2].set_title('Potência Rejeitada Total')
 axs[2].grid()
 
 plt.tight_layout()
+plt.savefig(diretorio_figuras + "/" f"{arquivo}_power_current_voltage_subplots.pdf", bbox_inches='tight')    
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------- Gráfico SoC, Tensão e Corrente: Bateria x Supercapacitor -------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
-fig, axs = plt.subplots(3, 2, figsize=(14, 8), sharex=True)
+fig, axs = plt.subplots(3, 2, figsize=(fig_width_cm, fig_height_cm*1.2), sharex=True)
 
 # Linha 1: SoC
 axs[0, 0].plot(sim_time, sim._SoC, color='tab:blue', label='SoC Bateria')
-axs[0, 0].set_ylabel('SoC Bateria [\%]')
+axs[0, 0].set_ylabel(r'SoC Bateria [\%]')
 axs[0, 0].legend(loc='upper right')
 axs[0, 0].grid()
 
 axs[0, 1].plot(sim_time, sim._SoC_UC, color='tab:blue', label='SoC Supercapacitor')
-axs[0, 1].set_ylabel('SoC UC [\%]')
+axs[0, 1].set_ylabel(r'SoC UC [\%]')
 axs[0, 1].legend(loc='upper right')
 axs[0, 1].grid()
 
@@ -469,15 +490,16 @@ axs[2, 1].legend(loc='upper right')
 axs[2, 1].grid()
 
 plt.suptitle('SoC, Tensão e Corrente: Bateria (esq.) x Supercapacitor (dir.)')
-plt.tight_layout(rect=[0, 0.03, 1, 0.97])
+plt.tight_layout()
+plt.savefig(diretorio_figuras + "/" "{arquivo}_soc_voltage_current.pdf", bbox_inches='tight')
 plt.show(block=False)
 
-plt.figure(figsize=(12, 4))
+
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # ---------------------------------------------- Comparação entre a potência do diesel e a gerenciada ------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
-
+plt.figure(figsize=(fig_width_cm, fig_height_cm/2))
 # Potência medida do sistema (entrada)
 pot_sistema = input_df["fa08_m2amps"] * input_df["fa00_altoutvolts"] / 1000  # kW
 plt.plot(time, pot_sistema, label='Potência Sistema (Diesel) [kW]', color='black')
@@ -494,6 +516,7 @@ plt.title('Comparação: Potência do Sistema vs. Simulação')
 plt.legend(loc='upper right')
 plt.grid()
 plt.tight_layout()
+plt.savefig(diretorio_figuras + "/" f"{arquivo}_power_comparison.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -527,15 +550,16 @@ else:
 #         capacidade_bateria[i] = 1 - 0.2 * porcentagem_de_ciclos                               # Linear até 80%
 #     else:
 #         capacidade_bateria[i] = 1  # Após vida útil, mantém 80%
-plt.figure(figsize=(10, 4))
+plt.figure(figsize=(fig_width_cm, fig_height_cm/2))
 print(problem.saude_bat)
 plt.step(np.arange(horizonte_analise_meses), np.array(problem.saude_bat) * 100, where="post")
 plt.title('Degradação da Bateria ao Longo do Tempo')
 plt.xlabel('Meses')
-plt.ylabel('Capacidade Residual (\%)')
+plt.ylabel(r'Capacidade Residual [\%]')
 plt.ylim(75, 105)
 plt.xlim(0, horizonte_analise_meses)
 plt.grid()
+plt.savefig(diretorio_figuras + "/" f"{arquivo}_battery_degradation.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -550,7 +574,7 @@ plt.show(block=False)
 #     else:
 #         capacidade_supercap[i] = horas
 # print(capacidade_supercap)
-plt.figure(figsize=(10, 4))
+plt.figure(figsize=(fig_width_cm, fig_height_cm/2))
 plt.step(np.arange(horizonte_analise_meses), np.array(problem.saude_uc) * 100, color='tab:blue', where="post")
 plt.title('Degradação do Supercapacitor ao Longo do Tempo')
 plt.xlabel('Meses')
@@ -558,6 +582,7 @@ plt.ylabel('Capacidade Residual (%)')
 plt.ylim(75, 105)
 plt.xlim(0, horizonte_analise_meses)
 plt.grid()
+plt.savefig(diretorio_figuras + "/" f"{arquivo}_supercapacitor_degradation.pdf", bbox_inches='tight')
 plt.show(block=True)
 
 # # ----------------------------------------------------------------------------------------------------------------------------------------------------
