@@ -1,24 +1,28 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from pymoo.core.problem import ElementwiseProblem
-from pymoo.algorithms.moo.nsga2 import NSGA2
 import os
 
 from pymoo.core.problem import ElementwiseProblem
+from pymoo.algorithms.moo.nsga2 import NSGA2
+from pymoo.core.problem import ElementwiseProblem
+from pymoo.config import Config
+Config.warnings['not_compiled'] = False
 
 from simulation import Simulation
 
-# plt.rcParams.update({
-#     "text.usetex": True,
-#     "font.family": "serif",
-#     "font.serif": ["Computer Modern Roman"], # Or other serif font
-#     "axes.labelsize": 18,
-#     "axes.labelweight": "bold",
-#     "font.size": 18,
-#     "legend.fontsize": 16,
-#     "xtick.labelsize": 16,
-#     "ytick.labelsize": 16,
-# })
+DEBUG = 1
+
+plt.rcParams.update({
+    "text.usetex": True,
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman"], # Or other serif font
+    "axes.labelsize": 18,
+    "axes.labelweight": "bold",
+    "font.size": 18,
+    "legend.fontsize": 16,
+    "xtick.labelsize": 16,
+    "ytick.labelsize": 16,
+})
 
 fig_width_cm = 24/2.4
 fig_height_cm = 18/2.4
@@ -280,16 +284,155 @@ termination = get_termination("n_gen", 20)
 
 from pymoo.optimize import minimize
 
-res = minimize(problem,
-               algorithm,
-               termination,
-               seed=1,
-               save_history=True,
-               verbose=True)
+if DEBUG == 1:
+    X = np.array([[4.00999133, 2.07104457],
+         [3.99967373, 1.68040911],
+         [3.81062236, 2.07136215],
+         [4.10874947, 2.42491543],
+         [4.00308448, 2.27489539],
+         [3.82535379, 2.30625727],
+         [4.00323783, 1.91185973],
+         [3.82172073, 1.69118846],
+         [3.83653917, 2.04512429],
+         [3.98621894, 2.04736429],
+         [3.99829086, 1.99903204],
+         [3.82682018, 2.27341539],
+         [3.82095026, 2.30823213],
+         [3.99895895, 2.24755883],
+         [4.00440353, 2.03419136],
+         [4.34484622, 1.92398946],
+         [3.97452196, 2.02520235],
+         [3.82535379, 2.06873759],
+         [3.81795914, 2.06876841],
+         [4.17019274, 2.04562814],
+         [3.82535379, 2.06855955],
+         [3.99939823, 2.05765985],
+         [4.00440353, 2.03647825],
+         [4.15960874, 2.0475487 ],
+         [3.82926125, 2.42789438],
+         [3.82535379, 2.06941667],
+         [4.10874947, 1.91414662],
+         [4.15960874, 2.25263452],
+         [4.06343617, 2.04562814],
+         [4.12657584, 2.3245013 ],
+         [3.53248877, 2.04996665],
+         [4.43496489, 2.07112244],
+         [3.82711493, 2.24755883],
+         [3.96724405, 2.40797243],
+         [4.        , 2.03616622],
+         [3.79741521, 2.06840353],
+         [4.0001594 , 2.04736429],
+         [4.00021164, 1.92034062],
+         [3.53248877, 2.25505247],
+         [4.01917431, 2.04562246],
+         [4.17042433, 1.80668433],
+         [3.82533262, 2.06873759],
+         [3.8242215 , 2.3741387 ],
+         [4.02014512, 2.04562246],
+         [4.33410235, 2.36203223],
+         [3.99829086, 2.01074126],
+         [4.17116354, 2.04562814],
+         [3.64650489, 2.06876841],
+         [3.99717664, 2.06873759],
+         [4.12738925, 1.91414662]])
+    F = np.array([[-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173],
+         [-688225.34294173]])
+    problem.saude_bat = [1, 0.9565283018867925,
+                         0.913056603773585,
+                         0.8695849056603775,
+                         0.82611320754717,
+                         1,
+                         0.9565283018867925,
+                         0.913056603773585,
+                         0.8695849056603775,
+                         0.82611320754717,
+                         1,
+                         0.9565283018867925]
+    problem.saude_uc = [1,
+                        0.9998848,
+                        0.9997696,
+                        0.9996544,
+                        0.9995392000000001,
+                        0.9994240000000001,
+                        0.9993088000000001,
+                        0.9991936000000001,
+                        0.9990784000000001,
+                        0.9989632000000002,
+                        0.9988480000000002,
+                        0.9987328000000002]
+    problem.melhor_fluxo_caixa = [-2431162.56,
+                                  np.float64(340362.6297192742),
+                                  np.float64(340362.6297192742),
+                                  np.float64(340362.6297192742),
+                                  np.float64(340362.6297192742),
+                                  np.float64(100808.06971927418),
+                                  np.float64(340362.6297192742),
+                                  np.float64(340362.6297192742),
+                                  np.float64(340362.6297192742),
+                                  np.float64(340362.6297192742),
+                                  np.float64(100808.06971927418),
+                                  np.float64(340362.6297192742)]
 
-# Após a otimização
-X = res.X
-F = res.F
+else:
+    res = minimize(problem,
+            algorithm,
+            termination,
+            seed=1,
+            save_history=True,
+            verbose=True)
+
+    # Após a otimização
+    X = res.X
+    F = res.F
+
 
 print(f'X: {X}')
 print(f'F: {F}')
@@ -298,7 +441,7 @@ print(f'F: {F}')
 # ----------------------------------------------- Visualização do espaço de design -------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
-plt.figure(figsize=(fig_width_cm, fig_height_cm/2))
+plt.figure(figsize=(fig_width_cm, fig_height_cm))
 X_int = np.round(X).astype(int)
 plt.scatter(X_int[:, 0], X_int[:, 1], s=30, facecolors='r', edgecolors='r', zorder=3)
 plt.xlabel('Número de Baterias em Paralelo')
@@ -335,8 +478,8 @@ best_Np_uc = int(round(X[idx_best, 1]))
 sim = Simulation()
 sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=best_Np_b, Nm=Nm_b, Vnom=3.2, SoC=50, T_m=T_xb)
 sim.setParam_UC(C=3400, Ns=Ns_uc, Np=best_Np_uc, Nm=Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
-data = r"data\CR-3112_28-09-24_AGGREGATED.xlsx"
-sheet = "Log"
+# data = r"data\CR-3112_28-09-24_AGGREGATED.xlsx"
+# sheet = "Log"
 
 # Carregar dados do Excel para plotar potência, corrente e tensão de entrada
 import pandas as pd
@@ -352,11 +495,11 @@ sim.simulate_custom_powers(powers_diesel)
 
 # O restante do código permanece igual, usando os resultados da simulação
 
-# Carregar dados do Excel para plotar potência, corrente e tensão de entrada
-import pandas as pd
-input_df = pd.read_excel(data, sheet_name="Log")
+# # Carregar dados do Excel para plotar potência, corrente e tensão de entrada
+# import pandas as pd
+# input_df = pd.read_excel(data, sheet_name="Log")
 
-time = np.arange(len(input_df))
+# time = np.arange(len(input_df))
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------- Gráfico de Potência, Corrente e Tensão de Entrada -------------------------------------------------
@@ -390,7 +533,7 @@ plt.show(block=False)
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
 sim_time = np.arange(len(sim._p_batt))
-fig, axs = plt.subplots(3, 1, figsize=(fig_width_cm, fig_height_cm*1.2), sharex=True)
+fig, axs = plt.subplots(3, 2, figsize=(fig_width_cm*1.5, fig_height_cm*1.2), sharex=True)
 
 # Potência em kW
 p_batt_kw = np.array(sim._p_batt) / 1e3
@@ -401,48 +544,84 @@ color_uc = 'tab:blue'
 color_batt_i = 'tab:orange'
 color_uc_i = 'tab:orange'
 
-# --- BATERIA ---
-axs[0].set_ylabel('Potência Bateria [kW]', color=color_batt)
-l1 = axs[0].plot(sim_time, p_batt_kw, label='Potência Bateria [kW]', color=color_batt)
-l_bat_rej = axs[0].plot(sim_time, np.array(sim._p_bat_reject), label='Potência Rejeitada Bateria [kW]', color='tab:red', linestyle=':')
-axs[0].tick_params(axis='y', labelcolor=color_batt)
+# -------   bateria     -------------
+axs[0, 0].set_title("Bateria")
+axs[0, 0].plot(time, p_batt_kw, linewidth = 2, label='Potência Bateria', color=color_batt)
+axs[0, 0].legend(loc = 'upper right')
+axs[0, 0].set_ylabel("Potência [kW]")
+axs[0, 0].grid()
 
-ax2_0 = axs[0].twinx()
-l2 = ax2_0.plot(sim_time, sim._i_bat, label='Corrente Bateria [A]', color=color_batt_i)
-ax2_0.set_ylabel('Corrente Bateria [A]', color=color_batt_i)
-ax2_0.tick_params(axis='y', labelcolor=color_batt_i)
+axs[1, 0].plot(time, sim._i_bat, linewidth = 2, label='Corrente Bateria', color=color_batt_i)
+axs[1, 0].legend(loc = 'upper right')
+axs[1, 0].set_ylabel("Corrente [A]")
+axs[1, 0].grid()
 
-lns0 = l1 + l_bat_rej + l2
-labs0 = [l.get_label() for l in lns0]
-axs[0].legend(lns0, labs0, loc='upper right')
-axs[0].set_title('Bateria')
-axs[0].grid()
+axs[2, 0].plot(time, np.array(sim._p_bat_reject), linewidth = 2, label='Potência Rejeitada Bateria [kW]', color='tab:red')
+axs[2, 0].legend(loc = 'upper right')
+axs[2, 0].set_ylabel("Potência")
+axs[2, 0].set_xlabel("Tempo [s]")
+axs[2, 0].grid()
+axs[2, 0].set_xlim([0, sim_time[-1]])
 
-# --- SUPERCAPACITOR ---
-axs[1].set_ylabel('Potência Supercapacitor [kW]', color=color_uc)
-l3 = axs[1].plot(sim_time, p_uc_kw, label='Potência Supercapacitor [kW]', color=color_uc)
-l_uc_rej = axs[1].plot(sim_time, np.array(sim._p_uc_reject), label='Potência Rejeitada Supercapacitor [kW]', color='tab:purple', linestyle=':')
-axs[1].tick_params(axis='y', labelcolor=color_uc)
 
-ax2_1 = axs[1].twinx()
-l4 = ax2_1.plot(sim_time, sim._i_uc, label='Corrente Supercapacitor [A]', color=color_uc_i)
-ax2_1.set_ylabel('Corrente Supercapacitor [A]', color=color_uc_i)
-ax2_1.tick_params(axis='y', labelcolor=color_uc_i)
+# -------   supercapacitor     -------------
+axs[0, 1].set_title("Supercapacitor")
+axs[0, 1].plot(time, p_batt_kw, linewidth = 2, label='Potência Supercapacitor', color=color_batt)
+axs[0, 1].legend(loc = 'upper right')
+axs[0, 1].grid()
 
-lns1 = l3 + l_uc_rej + l4
-labs1 = [l.get_label() for l in lns1]
-axs[1].legend(lns1, labs1, loc='upper right')
-axs[1].set_title('Supercapacitor')
-axs[1].grid()
+axs[1, 1].plot(time, sim._i_bat, linewidth = 2, label='Corrente Supercapacitor', color=color_batt_i)
+axs[1, 1].legend(loc = 'upper right')
+axs[1, 1].grid()
 
-# --- POTÊNCIA REJEITADA TOTAL ---
-p_rej_total = np.array(sim._p_bat_reject) + np.array(sim._p_uc_reject)
-axs[2].plot(sim_time, p_rej_total, label='Potência Rejeitada Total [kW]', color='tab:orange')
-axs[2].set_ylabel('Potência Rejeitada Total [kW]')
-axs[2].set_xlabel('Amostra')
-axs[2].legend(loc='upper right')
-axs[2].set_title('Potência Rejeitada Total')
-axs[2].grid()
+axs[2, 1].plot(time, np.array(sim._p_bat_reject), linewidth = 2, label='Potência Rejeitada Supercapacitor [kW]', color='tab:red')
+axs[2, 1].legend(loc = 'upper right')
+axs[2, 1].set_xlabel("Tempo [s]")
+axs[2, 1].grid()
+axs[2, 1].set_xlim([0, time[-1]])
+
+# # --- BATERIA ---
+# axs[0].set_ylabel('Potência Bateria [kW]', color=color_batt)
+# l1 = axs[0].plot(sim_time, p_batt_kw, label='Potência Bateria [kW]', color=color_batt)
+# l_bat_rej = axs[0].plot(sim_time, np.array(sim._p_bat_reject), label='Potência Rejeitada Bateria [kW]', color='tab:red', linestyle=':')
+# axs[0].tick_params(axis='y', labelcolor=color_batt)
+
+# ax2_0 = axs[0].twinx()
+# l2 = ax2_0.plot(sim_time, sim._i_bat, label='Corrente Bateria [A]', color=color_batt_i)
+# ax2_0.set_ylabel('Corrente Bateria [A]', color=color_batt_i)
+# ax2_0.tick_params(axis='y', labelcolor=color_batt_i)
+
+# lns0 = l1 + l_bat_rej + l2
+# labs0 = [l.get_label() for l in lns0]
+# axs[0].legend(lns0, labs0, loc='upper right')
+# axs[0].set_title('Bateria')
+# axs[0].grid()
+
+# # --- SUPERCAPACITOR ---
+# axs[1].set_ylabel('Potência Supercapacitor [kW]', color=color_uc)
+# l3 = axs[1].plot(sim_time, p_uc_kw, label='Potência Supercapacitor [kW]', color=color_uc)
+# l_uc_rej = axs[1].plot(sim_time, np.array(sim._p_uc_reject), label='Potência Rejeitada Supercapacitor [kW]', color='tab:purple', linestyle=':')
+# axs[1].tick_params(axis='y', labelcolor=color_uc)
+
+# ax2_1 = axs[1].twinx()
+# l4 = ax2_1.plot(sim_time, sim._i_uc, label='Corrente Supercapacitor [A]', color=color_uc_i)
+# ax2_1.set_ylabel('Corrente Supercapacitor [A]', color=color_uc_i)
+# ax2_1.tick_params(axis='y', labelcolor=color_uc_i)
+
+# lns1 = l3 + l_uc_rej + l4
+# labs1 = [l.get_label() for l in lns1]
+# axs[1].legend(lns1, labs1, loc='upper right')
+# axs[1].set_title('Supercapacitor')
+# axs[1].grid()
+
+# # --- POTÊNCIA REJEITADA TOTAL ---
+
+# axs[2].plot(sim_time, p_rej_total, label='Potência Rejeitada Total [kW]', color='tab:orange')
+# axs[2].set_ylabel('Potência Rejeitada Total [kW]')
+# axs[2].set_xlabel('Amostra')
+# axs[2].legend(loc='upper right')
+# axs[2].set_title('Potência Rejeitada Total')
+# axs[2].grid()
 
 plt.tight_layout()
 plt.savefig(diretorio_figuras + "/" f"{arquivo}_power_current_voltage_subplots.pdf", bbox_inches='tight')    
@@ -452,41 +631,40 @@ plt.show(block=False)
 # ----------------------------------------------- Gráfico SoC, Tensão e Corrente: Bateria x Supercapacitor -------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
-fig, axs = plt.subplots(3, 2, figsize=(fig_width_cm, fig_height_cm*1.2), sharex=True)
+fig, axs = plt.subplots(3, 2, figsize=(fig_width_cm*1.5, fig_height_cm*1.2), sharex=True)
 
 # Linha 1: SoC
-axs[0, 0].plot(sim_time, sim._SoC, color='tab:blue', label='SoC Bateria')
-axs[0, 0].set_ylabel(r'SoC Bateria [\%]')
+axs[0, 0].plot(time, sim._SoC, color='tab:blue', label='SoC Bateria')
+axs[0, 0].set_ylabel(r'SoC [\%]')
 axs[0, 0].legend(loc='upper right')
 axs[0, 0].grid()
 
-axs[0, 1].plot(sim_time, sim._SoC_UC, color='tab:blue', label='SoC Supercapacitor')
-axs[0, 1].set_ylabel(r'SoC UC [\%]')
+axs[0, 1].plot(time, sim._SoC_UC, color='tab:blue', label='SoC Supercapacitor')
 axs[0, 1].legend(loc='upper right')
 axs[0, 1].grid()
 
 # Linha 2: Tensão
-axs[1, 0].plot(sim_time, sim._v_banco_bat, color='tab:orange', label='Tensão Bateria')
-axs[1, 0].set_ylabel('Tensão Bateria [V]')
+axs[1, 0].plot(time, sim._v_banco_bat, color='tab:orange', label='Tensão Bateria')
+axs[1, 0].set_ylabel('Tensão [V]')
 axs[1, 0].legend(loc='upper right')
 axs[1, 0].grid()
 
-axs[1, 1].plot(sim_time, sim._v_banco_uc, color='tab:orange', label='Tensão Supercapacitor')
-axs[1, 1].set_ylabel('Tensão UC [V]')
+axs[1, 1].plot(time, sim._v_banco_uc, color='tab:orange', label='Tensão Supercapacitor')
 axs[1, 1].legend(loc='upper right')
 axs[1, 1].grid()
 
 # Linha 3: Corrente
-axs[2, 0].plot(sim_time, sim._i_bat, color='tab:green', label='Corrente Bateria')
-axs[2, 0].set_ylabel('Corrente Bateria [A]')
-axs[2, 0].set_xlabel('Amostra')
+axs[2, 0].plot(time, sim._i_bat, color='tab:green', label='Corrente Bateria')
+axs[2, 0].set_ylabel('Corrente [A]')
+axs[2, 0].set_xlabel('Tempo [s]')
 axs[2, 0].legend(loc='upper right')
+axs[2, 0].set_xlim([0, time[-1]])
 axs[2, 0].grid()
 
-axs[2, 1].plot(sim_time, sim._i_uc, color='tab:green', label='Corrente Supercapacitor')
-axs[2, 1].set_ylabel('Corrente UC [A]')
-axs[2, 1].set_xlabel('Amostra')
+axs[2, 1].plot(time, sim._i_uc, color='tab:green', label='Corrente Supercapacitor')
+axs[2, 1].set_xlabel('Tempo [s]')
 axs[2, 1].legend(loc='upper right')
+axs[2, 1].set_xlim([0, time[-1]])
 axs[2, 1].grid()
 
 plt.suptitle('SoC, Tensão e Corrente: Bateria (esq.) x Supercapacitor (dir.)')
@@ -499,7 +677,8 @@ plt.show(block=False)
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # ---------------------------------------------- Comparação entre a potência do diesel e a gerenciada ------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
-plt.figure(figsize=(fig_width_cm, fig_height_cm/2))
+plt.figure(figsize=(fig_width_cm, fig_height_cm/1.5))
+p_rej_total = np.array(sim._p_bat_reject) + np.array(sim._p_uc_reject)
 # Potência medida do sistema (entrada)
 pot_sistema = input_df["fa08_m2amps"] * input_df["fa00_altoutvolts"] / 1000  # kW
 plt.plot(time, pot_sistema, label='Potência Sistema (Diesel) [kW]', color='black')
@@ -507,14 +686,15 @@ plt.plot(time, pot_sistema, label='Potência Sistema (Diesel) [kW]', color='blac
 # Soma das potências simuladas (bateria + supercapacitor + rejeitada)
 pot_simulada = (np.array(sim._p_batt) + np.array(sim._p_uc) + np.array(p_rej_total) * 1000) / 1e3  # kW
 pot_simulada_2 = (np.array(sim._p_batt) + np.array(sim._p_uc)) / 1e3  # kW
-plt.plot(sim_time, pot_simulada, label='Potência Administrada Total [kW]', color='tab:blue', linestyle='--')
-plt.plot(sim_time, pot_simulada_2, label='Potência Bateria + Supercapacitor [kW]', color='tab:red', linestyle='--')
+plt.plot(time, pot_simulada, label='Potência Administrada Total [kW]', color='tab:blue', linestyle='--')
+plt.plot(time, pot_simulada_2, label='Potência Bateria + Supercapacitor [kW]', color='tab:red', linestyle='--')
 
 plt.ylabel('Potência [kW]')
-plt.xlabel('Amostra')
+plt.xlabel('Tempo [s]')
 plt.title('Comparação: Potência do Sistema vs. Simulação')
 plt.legend(loc='upper right')
 plt.grid()
+plt.xlim([0, time[-1]])
 plt.tight_layout()
 plt.savefig(diretorio_figuras + "/" f"{arquivo}_power_comparison.pdf", bbox_inches='tight')
 plt.show(block=False)
@@ -551,7 +731,6 @@ else:
 #     else:
 #         capacidade_bateria[i] = 1  # Após vida útil, mantém 80%
 plt.figure(figsize=(fig_width_cm, fig_height_cm/2))
-print(problem.saude_bat)
 plt.step(np.arange(horizonte_analise_meses), np.array(problem.saude_bat) * 100, where="post")
 plt.title('Degradação da Bateria ao Longo do Tempo')
 plt.xlabel('Meses')
@@ -559,6 +738,7 @@ plt.ylabel(r'Capacidade Residual [\%]')
 plt.ylim(75, 105)
 plt.xlim(0, horizonte_analise_meses)
 plt.grid()
+plt.tight_layout()
 plt.savefig(diretorio_figuras + "/" f"{arquivo}_battery_degradation.pdf", bbox_inches='tight')
 plt.show(block=False)
 
@@ -578,10 +758,11 @@ plt.figure(figsize=(fig_width_cm, fig_height_cm/2))
 plt.step(np.arange(horizonte_analise_meses), np.array(problem.saude_uc) * 100, color='tab:blue', where="post")
 plt.title('Degradação do Supercapacitor ao Longo do Tempo')
 plt.xlabel('Meses')
-plt.ylabel('Capacidade Residual (%)')
-plt.ylim(75, 105)
+plt.ylabel(r'Capacidade Residual [\%]')
+plt.ylim(99.8, 100.2)
 plt.xlim(0, horizonte_analise_meses)
 plt.grid()
+plt.tight_layout()
 plt.savefig(diretorio_figuras + "/" f"{arquivo}_supercapacitor_degradation.pdf", bbox_inches='tight')
 plt.show(block=True)
 
