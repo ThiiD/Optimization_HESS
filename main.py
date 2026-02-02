@@ -10,7 +10,7 @@ Config.warnings['not_compiled'] = False
 
 from simulation import Simulation
 
-DEBUG = 1
+DEBUG = 0
 
 plt.rcParams.update({
     "text.usetex": True,
@@ -111,11 +111,11 @@ T_xuc = 3                   # Multiplicador da capacidade do supercapacitor
 class MyProblem(ElementwiseProblem):
 
     def __init__(self):
-        super().__init__(n_var=2,  # Np_b e Np_uc
+        super().__init__(n_var=3,  # Np_b e Np_uc e Pth
                          n_obj=1,   # Agora apenas VPL
                          n_ieq_constr=0,  # Sem restrições
-                         xl=np.array([1, 1]),  # Mínimo de 1 para cada variável
-                         xu=np.array([10, 10]),  # Máximo de 10 para cada variável
+                         xl=np.array([1, 1, 500]),  # Mínimo de 1 para cada elemento armazenador e 0 para potencia (500 kW)
+                         xu=np.array([10, 10, 2000]),  # Máximo de 10 para elementos armazenados e 60 para potência (2000 kW)
                          type_var=np.int64)  # Especificando que as variáveis são inteiros
         self.simulation_cache = {}
 
@@ -125,8 +125,12 @@ class MyProblem(ElementwiseProblem):
 
 
     def _evaluate(self, x, out, *args, **kwargs):
-        Np_b = int(round(x[0]))   # Número de baterias em paralelo
-        Np_uc = int(round(x[1]))  # Número de supercapacitores em paralelo
+        Np_b = int(round(x[0]))     # Número de baterias em paralelo
+        Np_uc = int(round(x[1]))    # Número de supercapacitores em paralelo
+        N_pth = int(round(x[2]))    # Variavel relativa a potencia
+        # Pth = 500 + 25*N_pth        # Potencia de Threshold
+        Pth = N_pth
+
 
         # Cálculo do número total de componentes
         total_baterias = Np_b * Nm_b * Ns_b
@@ -137,14 +141,14 @@ class MyProblem(ElementwiseProblem):
         custo_inicial = (total_baterias * Pb) + (total_supercaps * Puc) + (total_elepot * preco_razao_elepot * 1000)
 
         # Simulação para calcular energia rejeitada
-        cache_key = (Np_b, Np_uc)
+        cache_key = (Np_b, Np_uc, Pth)
         if cache_key not in self.simulation_cache:
             sim = Simulation()
             sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.2, SoC=50, T_m = T_xb)
             sim.setParam_UC(C=3400, Ns=Ns_uc, Np=Np_uc, Nm=Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
             # data = r"data\CR-3112_28-09-24_AGGREGATED.xlsx"
             # sheet = "Log"
-            sim.simulate(self._data, self._sheet, threshold=1000)
+            sim.simulate(self._data, self._sheet, threshold=Pth)
             energia_rejeitada = sum(sim._p_reject) / 3600  # Wh
             # Energia absorvida é a soma das potências negativas (absorvidas) pelos sistemas
             p_batt_arr = np.array(sim._p_batt)
@@ -159,7 +163,7 @@ class MyProblem(ElementwiseProblem):
 
         # Energia absorvida por ciclo (Wh)
         energia_absorvida_ciclo = energia_absorvida
-        print(f"Energia absorvida por ciclo (Np_b: {Np_b}, Np_uc: {Np_uc}): {energia_absorvida_ciclo} Wh")
+        print(f"Energia absorvida por ciclo (Np_b: {Np_b}, Np_uc: {Np_uc}, Pth: {Pth}): {energia_absorvida_ciclo} Wh")
         # Número de ciclos por dia e por mês
         horas_operacao_dia = 24 * taxa_disponibilidade
         ciclos_por_dia = horas_operacao_dia / duracao_ciclo_horas
@@ -238,7 +242,7 @@ class MyProblem(ElementwiseProblem):
         for i, fc in enumerate(fluxo_caixa):
             vpl += fc / ((1 + taxa_desconto_mensal) ** i)
 
-        print(f"VPL (Np_b: {Np_b}, Np_uc: {Np_uc}): {vpl}")
+        print(f"VPL (Np_b: {Np_b}, Np_uc: {Np_uc}, Pth: {Pth}): {vpl}")
         print(f'---------------------------------------------------------')
 
         # Como a otimização é de minimização, usamos o valor negativo do VPL
@@ -285,106 +289,106 @@ termination = get_termination("n_gen", 20)
 from pymoo.optimize import minimize
 
 if DEBUG == 1:
-    X = np.array([[4.00999133, 2.07104457],
-         [3.99967373, 1.68040911],
-         [3.81062236, 2.07136215],
-         [4.10874947, 2.42491543],
-         [4.00308448, 2.27489539],
-         [3.82535379, 2.30625727],
-         [4.00323783, 1.91185973],
-         [3.82172073, 1.69118846],
-         [3.83653917, 2.04512429],
-         [3.98621894, 2.04736429],
-         [3.99829086, 1.99903204],
-         [3.82682018, 2.27341539],
-         [3.82095026, 2.30823213],
-         [3.99895895, 2.24755883],
-         [4.00440353, 2.03419136],
-         [4.34484622, 1.92398946],
-         [3.97452196, 2.02520235],
-         [3.82535379, 2.06873759],
-         [3.81795914, 2.06876841],
-         [4.17019274, 2.04562814],
-         [3.82535379, 2.06855955],
-         [3.99939823, 2.05765985],
-         [4.00440353, 2.03647825],
-         [4.15960874, 2.0475487 ],
-         [3.82926125, 2.42789438],
-         [3.82535379, 2.06941667],
-         [4.10874947, 1.91414662],
-         [4.15960874, 2.25263452],
-         [4.06343617, 2.04562814],
-         [4.12657584, 2.3245013 ],
-         [3.53248877, 2.04996665],
-         [4.43496489, 2.07112244],
-         [3.82711493, 2.24755883],
-         [3.96724405, 2.40797243],
-         [4.        , 2.03616622],
-         [3.79741521, 2.06840353],
-         [4.0001594 , 2.04736429],
-         [4.00021164, 1.92034062],
-         [3.53248877, 2.25505247],
-         [4.01917431, 2.04562246],
-         [4.17042433, 1.80668433],
-         [3.82533262, 2.06873759],
-         [3.8242215 , 2.3741387 ],
-         [4.02014512, 2.04562246],
-         [4.33410235, 2.36203223],
-         [3.99829086, 2.01074126],
-         [4.17116354, 2.04562814],
-         [3.64650489, 2.06876841],
-         [3.99717664, 2.06873759],
-         [4.12738925, 1.91414662]])
-    F = np.array([[-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173],
-         [-688225.34294173]])
+    X = np.array([[1.67568827 , 2.00387028 , 2.42676082],
+                  [2.45828371 , 2.16749542 , 2.29327055],
+                  [2.48089061 , 2.00954174 , 2.29311394],
+                  [1.68066717 , 2.00387028 , 2.42676082],
+                  [2.3824625  , 1.72352808 , 2.00388331],
+                  [2.46946474 , 2.01153336 , 2.3417322 ],
+                  [1.80650082 , 2.16749542 , 2.28653366],
+                  [2.42323793 , 1.71690139 , 1.68014845],
+                  [2.46766855 , 2.01030525 , 2.2843379 ],
+                  [2.48441901 , 1.71674928 , 1.67953821],
+                  [1.66524314 , 2.15307047 , 2.28653366],
+                  [2.41622185 , 2.03898575 , 2.27603183],
+                  [2.46373699 , 2.00926662 , 2.29311394],
+                  [2.42026014 , 2.27297904 , 2.29195702],
+                  [1.72671404 , 2.07843162 , 2.27633423],
+                  [2.4163137  , 2.01700668 , 2.29311394],
+                  [2.36949422 , 2.07832437 , 2.2792785 ],
+                  [2.47444365 , 2.01153336 , 2.3423704 ],
+                  [2.41139047 , 1.73282528 , 1.68065134],
+                  [1.6689999  , 2.16749542 , 2.42979231],
+                  [2.4697575  , 1.73621974 , 2.34483868],
+                  [2.46946455 , 2.01062817 , 2.28950294],
+                  [1.66916977 , 2.16749542 , 2.28717186],
+                  [2.46713047 , 2.01001253 , 2.29311394],
+                  [2.46946439 , 2.0297654  , 2.43276159],
+                  [2.46713047 , 2.01008903 , 2.29311394],
+                  [2.46948572 , 2.07401983 , 2.29519769],
+                  [1.68789503 , 2.15607932 , 1.67230267],
+                  [2.41622185 , 2.03923487 , 1.6801506 ],
+                  [2.48134673 , 2.01033768 , 2.28198642],
+                  [2.48198928 , 1.73621974 , 2.29436782],
+                  [1.65552358 , 2.28751669 , 2.29436782],
+                  [2.41451112 , 2.07752873 , 2.29439125],
+                  [2.48169737 , 2.01153336 , 2.29372633],
+                  [2.46881361 , 2.00976048 , 2.34335867],
+                  [2.49832873 , 2.07843162 , 2.27633423],
+                  [1.65569346 , 2.28751669 , 2.29436782],
+                  [1.70103911 , 2.31993647 , 1.66291752],
+                  [2.46883301 , 2.00967934 , 2.29349918],
+                  [2.48441901 , 1.71674928 , 1.6801506 ],
+                  [1.63209465 , 1.74098441 , 2.28551734],
+                  [2.46713047 , 2.01033815 , 1.69723271],
+                  [1.6689999  , 2.16749542 , 2.28653366],
+                  [2.46975665 , 1.73621974 , 2.2944346 ],
+                  [1.66524314 , 2.16749542 , 2.29327055],
+                  [2.46881427 , 2.02905398 , 2.34555423],
+                  [2.46946474 , 2.01153336 , 2.3423704 ],
+                  [1.6689999  , 2.16749542 , 2.28717186],
+                  [2.47644084 , 2.29618761 , 2.29436782],
+                  [2.46832116 , 1.83287873 , 2.28198642]])
+    F = np.array([[-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403],
+                  [-1035859.12159403]])
     problem.saude_bat = [1, 0.9565283018867925,
                          0.913056603773585,
                          0.8695849056603775,
@@ -442,18 +446,21 @@ print(f'F: {F}')
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
 plt.figure(figsize=(fig_width_cm, fig_height_cm))
+ax = plt.axes(projection='3d')
 X_int = np.round(X).astype(int)
-plt.scatter(X_int[:, 0], X_int[:, 1], s=30, facecolors='r', edgecolors='r', zorder=3)
-plt.xlabel('Número de Baterias em Paralelo')
-plt.ylabel('Número de Supercapacitores em Paralelo')
-plt.title("Espaço de Design")
-plt.grid(zorder=1)
-plt.xticks(np.arange(1, 11, 1))
-plt.yticks(np.arange(1, 11, 1))
-plt.xlim(problem.xl[0]-1, problem.xu[0]+1)
-plt.ylim(problem.xl[1]-1, problem.xu[1]+1)
+ax.scatter(X_int[:, 0], X_int[:, 1], X_int[:, 2], s=30, facecolors='r', edgecolors='r', zorder=3)
+ax.set_xlabel('Número de Baterias em Paralelo')
+ax.set_ylabel('Número de Supercapacitores em Paralelo')
+ax.set_zlabel("Potência de Limiar")
+ax.set_title("Espaço de Design")
+ax.grid(zorder=1)
+ax.set_xticks(np.arange(1, 11, 1))
+ax.set_yticks(np.arange(1, 11, 1))
+ax.set_xlim(problem.xl[0]-1, problem.xu[0]+1)
+ax.set_ylim(problem.xl[1]-1, problem.xu[1]+1)
+ax.set_zlim(500 + 25*(problem.xl[2]-1), 500 + 25* (problem.xu[2]+1))
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo}_design_space.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_design_space.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 
@@ -464,6 +471,7 @@ for i in range(min(10, len(X))):  # Mostrar as 10 melhores soluções
     print(f"\nSolução {i+1}:")
     print(f"Número de baterias em paralelo: {int(round(X[i,0]))}")
     print(f"Número de supercapacitores em paralelo: {int(round(X[i,1]))}")
+    print(f"Valor limiar de potência: {500 + 25*int(round(X[i,2]))}")
     print(f"VPL (Valor Presente Líquido): R$ {(-F[i,0]):,.2f}")
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -506,26 +514,27 @@ sim.simulate_custom_powers(powers_diesel)
 # ----------------------------------------------------------------------------------------------------------------------------------------------------  
 
 fig, axs = plt.subplots(3, 1, figsize=(fig_width_cm, fig_height_cm*1.2), sharex=True)
-axs[0].plot(time, input_df["fa08_m2amps"] * input_df["fa00_altoutvolts"]/1000, label='Potência [kW]')
-axs[0].set_ylabel('Potência [kW]')
-axs[0].grid()
-axs[0].legend(loc="upper right")
 axs[0].set_title('Dados de Entrada do Ciclo (Arquivo Excel)')
+axs[0].plot(time, input_df['fa00_altoutvolts'], linewidth = 2, label='Tensão [V]', color='tab:blue')
+axs[0].set_ylabel('Tensão [V]')
+axs[0].grid()
+axs[0].legend(loc='upper right')
 
-axs[1].plot(time, input_df['fa08_m2amps'], label='Corrente [A]', color='orange')
+axs[1].plot(time, input_df['fa08_m2amps'], linewidth = 2, label='Corrente [A]', color='tab:orange')
 axs[1].set_ylabel('Corrente [A]')
 axs[1].grid()
 axs[1].legend(loc='upper right')
 
-axs[2].plot(time, input_df['fa00_altoutvolts'], label='Tensão [V]', color='green')
-axs[2].set_ylabel('Tensão [V]')
+axs[2].plot(time, input_df["fa08_m2amps"] * input_df["fa00_altoutvolts"]/1000, linewidth = 2, label='Potência [kW]', color = "tab:green")
+axs[2].set_ylabel('Potência [kW]')
 axs[2].set_xlabel('Tempo [s]')
 axs[2].set_xlim(0, len(input_df))
 axs[2].grid()
-axs[2].legend(loc='upper right')
+axs[2].legend(loc="upper right")
+
 
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo}_power_current_voltage.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_power_current_voltage.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -539,24 +548,25 @@ fig, axs = plt.subplots(3, 2, figsize=(fig_width_cm*1.5, fig_height_cm*1.2), sha
 p_batt_kw = np.array(sim._p_batt) / 1e3
 p_uc_kw = np.array(sim._p_uc) / 1e3
 
-color_batt = 'tab:blue'
-color_uc = 'tab:blue'
-color_batt_i = 'tab:orange'
-color_uc_i = 'tab:orange'
+color_power = "tab:green" 
+color_voltage = "tab:blue"
+color_current = "tab:orange"
+color_reject_power = "tab:red"
+color_soc = "tab:purple"
 
 # -------   bateria     -------------
 axs[0, 0].set_title("Bateria")
-axs[0, 0].plot(time, p_batt_kw, linewidth = 2, label='Potência Bateria', color=color_batt)
+axs[0, 0].plot(time, p_batt_kw, linewidth = 2, label='Potência Bateria', color=color_power)
 axs[0, 0].legend(loc = 'upper right')
 axs[0, 0].set_ylabel("Potência [kW]")
 axs[0, 0].grid()
 
-axs[1, 0].plot(time, sim._i_bat, linewidth = 2, label='Corrente Bateria', color=color_batt_i)
+axs[1, 0].plot(time, sim._i_bat, linewidth = 2, label='Corrente Bateria', color=color_current)
 axs[1, 0].legend(loc = 'upper right')
 axs[1, 0].set_ylabel("Corrente [A]")
 axs[1, 0].grid()
 
-axs[2, 0].plot(time, np.array(sim._p_bat_reject), linewidth = 2, label='Potência Rejeitada Bateria [kW]', color='tab:red')
+axs[2, 0].plot(time, np.array(sim._p_bat_reject), linewidth = 2, label='Potência Rejeitada Bateria [kW]', color=color_reject_power)
 axs[2, 0].legend(loc = 'upper right')
 axs[2, 0].set_ylabel("Potência")
 axs[2, 0].set_xlabel("Tempo [s]")
@@ -566,15 +576,15 @@ axs[2, 0].set_xlim([0, sim_time[-1]])
 
 # -------   supercapacitor     -------------
 axs[0, 1].set_title("Supercapacitor")
-axs[0, 1].plot(time, p_batt_kw, linewidth = 2, label='Potência Supercapacitor', color=color_batt)
+axs[0, 1].plot(time, p_uc_kw, linewidth = 2, label='Potência Supercapacitor', color=color_power)
 axs[0, 1].legend(loc = 'upper right')
 axs[0, 1].grid()
 
-axs[1, 1].plot(time, sim._i_bat, linewidth = 2, label='Corrente Supercapacitor', color=color_batt_i)
+axs[1, 1].plot(time, sim._i_uc, linewidth = 2, label='Corrente Supercapacitor', color=color_current)
 axs[1, 1].legend(loc = 'upper right')
 axs[1, 1].grid()
 
-axs[2, 1].plot(time, np.array(sim._p_bat_reject), linewidth = 2, label='Potência Rejeitada Supercapacitor [kW]', color='tab:red')
+axs[2, 1].plot(time, np.array(sim._p_uc_reject), linewidth = 2, label='Potência Rejeitada Supercapacitor [kW]', color=color_reject_power)
 axs[2, 1].legend(loc = 'upper right')
 axs[2, 1].set_xlabel("Tempo [s]")
 axs[2, 1].grid()
@@ -624,7 +634,7 @@ axs[2, 1].set_xlim([0, time[-1]])
 # axs[2].grid()
 
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo}_power_current_voltage_subplots.pdf", bbox_inches='tight')    
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_power_current_voltage_subplots.pdf", bbox_inches='tight')    
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -634,34 +644,34 @@ plt.show(block=False)
 fig, axs = plt.subplots(3, 2, figsize=(fig_width_cm*1.5, fig_height_cm*1.2), sharex=True)
 
 # Linha 1: SoC
-axs[0, 0].plot(time, sim._SoC, color='tab:blue', label='SoC Bateria')
+axs[0, 0].plot(time, sim._SoC, linewidth = 2, color=color_soc, label='SoC Bateria')
 axs[0, 0].set_ylabel(r'SoC [\%]')
 axs[0, 0].legend(loc='upper right')
 axs[0, 0].grid()
 
-axs[0, 1].plot(time, sim._SoC_UC, color='tab:blue', label='SoC Supercapacitor')
+axs[0, 1].plot(time, sim._SoC_UC, linewidth = 2, color=color_soc, label='SoC Supercapacitor')
 axs[0, 1].legend(loc='upper right')
 axs[0, 1].grid()
 
 # Linha 2: Tensão
-axs[1, 0].plot(time, sim._v_banco_bat, color='tab:orange', label='Tensão Bateria')
+axs[1, 0].plot(time, sim._v_banco_bat, linewidth = 2, color=color_voltage, label='Tensão Bateria')
 axs[1, 0].set_ylabel('Tensão [V]')
 axs[1, 0].legend(loc='upper right')
 axs[1, 0].grid()
 
-axs[1, 1].plot(time, sim._v_banco_uc, color='tab:orange', label='Tensão Supercapacitor')
+axs[1, 1].plot(time, sim._v_banco_uc, linewidth = 2, color=color_voltage, label='Tensão Supercapacitor')
 axs[1, 1].legend(loc='upper right')
 axs[1, 1].grid()
 
 # Linha 3: Corrente
-axs[2, 0].plot(time, sim._i_bat, color='tab:green', label='Corrente Bateria')
+axs[2, 0].plot(time, sim._i_bat, linewidth = 2, color=color_current, label='Corrente Bateria')
 axs[2, 0].set_ylabel('Corrente [A]')
 axs[2, 0].set_xlabel('Tempo [s]')
 axs[2, 0].legend(loc='upper right')
 axs[2, 0].set_xlim([0, time[-1]])
 axs[2, 0].grid()
 
-axs[2, 1].plot(time, sim._i_uc, color='tab:green', label='Corrente Supercapacitor')
+axs[2, 1].plot(time, sim._i_uc, linewidth = 2, color=color_current, label='Corrente Supercapacitor')
 axs[2, 1].set_xlabel('Tempo [s]')
 axs[2, 1].legend(loc='upper right')
 axs[2, 1].set_xlim([0, time[-1]])
@@ -669,7 +679,7 @@ axs[2, 1].grid()
 
 plt.suptitle('SoC, Tensão e Corrente: Bateria (esq.) x Supercapacitor (dir.)')
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" "{arquivo}_soc_voltage_current.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_soc_voltage_current.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 
@@ -696,7 +706,7 @@ plt.legend(loc='upper right')
 plt.grid()
 plt.xlim([0, time[-1]])
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo}_power_comparison.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_power_comparison.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -730,7 +740,7 @@ else:
 #         capacidade_bateria[i] = 1 - 0.2 * porcentagem_de_ciclos                               # Linear até 80%
 #     else:
 #         capacidade_bateria[i] = 1  # Após vida útil, mantém 80%
-plt.figure(figsize=(fig_width_cm, fig_height_cm/2))
+plt.figure(figsize=(fig_width_cm, fig_height_cm/1.5))
 plt.step(np.arange(horizonte_analise_meses), np.array(problem.saude_bat) * 100, where="post")
 plt.title('Degradação da Bateria ao Longo do Tempo')
 plt.xlabel('Meses')
@@ -739,7 +749,7 @@ plt.ylim(75, 105)
 plt.xlim(0, horizonte_analise_meses)
 plt.grid()
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo}_battery_degradation.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_battery_degradation.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -754,7 +764,7 @@ plt.show(block=False)
 #     else:
 #         capacidade_supercap[i] = horas
 # print(capacidade_supercap)
-plt.figure(figsize=(fig_width_cm, fig_height_cm/2))
+plt.figure(figsize=(fig_width_cm, fig_height_cm/1.5))
 plt.step(np.arange(horizonte_analise_meses), np.array(problem.saude_uc) * 100, color='tab:blue', where="post")
 plt.title('Degradação do Supercapacitor ao Longo do Tempo')
 plt.xlabel('Meses')
@@ -763,7 +773,7 @@ plt.ylim(99.8, 100.2)
 plt.xlim(0, horizonte_analise_meses)
 plt.grid()
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo}_supercapacitor_degradation.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_supercapacitor_degradation.pdf", bbox_inches='tight')
 plt.show(block=True)
 
 # # ----------------------------------------------------------------------------------------------------------------------------------------------------
