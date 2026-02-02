@@ -31,7 +31,9 @@ fig_height_cm = 18/2.4
 preco_diesel = 6.00  # R$/litro
 rendimento_diesel = 3.0  # kWh/litro
 
-preco_razao_elepot = 1      # Razao $/W
+# Estimativa do preço da eletronica de potencia
+total_elepot = 2000
+preco_razao_elepot = 1000      # Razao R$/kW
 
 taxa_disponibilidade = 0.8  # 80% de disponibilidade diária
 duracao_ciclo_horas = 0.5  # 30 minutos por ciclo
@@ -111,11 +113,11 @@ T_xuc = 3                   # Multiplicador da capacidade do supercapacitor
 class MyProblem(ElementwiseProblem):
 
     def __init__(self):
-        super().__init__(n_var=3,  # Np_b e Np_uc e Pth
-                         n_obj=1,   # Agora apenas VPL
+        super().__init__(n_var=3,  # Np_b, Np_uc e Pth
+                         n_obj=1,   # VPL e Volume
                          n_ieq_constr=0,  # Sem restrições
-                         xl=np.array([1, 1, 500]),  # Mínimo de 1 para cada elemento armazenador e 0 para potencia (500 kW)
-                         xu=np.array([10, 10, 2000]),  # Máximo de 10 para elementos armazenados e 60 para potência (2000 kW)
+                         xl=np.array([1, 1, 500]),  # Mínimo de 1 para cada elemento armazenador e 500 para potencia (500 kW)
+                         xu=np.array([10, 10, 2000]),  # Máximo de 10 para elementos armazenados e 2000 para potência (2000 kW)
                          type_var=np.int64)  # Especificando que as variáveis são inteiros
         self.simulation_cache = {}
 
@@ -135,10 +137,9 @@ class MyProblem(ElementwiseProblem):
         # Cálculo do número total de componentes
         total_baterias = Np_b * Nm_b * Ns_b
         total_supercaps = Np_uc * Nm_uc * Ns_uc
-        total_elepot = 2000
 
         # Cálculo do custo inicial (investimento)
-        custo_inicial = (total_baterias * Pb) + (total_supercaps * Puc) + (total_elepot * preco_razao_elepot * 1000)
+        custo_inicial = (total_baterias * Pb) + (total_supercaps * Puc) + (total_elepot * preco_razao_elepot)
 
         # Simulação para calcular energia rejeitada
         cache_key = (Np_b, Np_uc, Pth)
@@ -274,8 +275,8 @@ from pymoo.operators.crossover.sbx import SBX
 from pymoo.operators.mutation.pm import PM
 
 algorithm = NSGA2(
-    pop_size=50,
-    n_offsprings=25,
+    pop_size=20,
+    n_offsprings=20,
     sampling=IntegerRandomSampling(),
     crossover=SBX(prob=0.9, eta=15),
     mutation=PM(eta=15, prob=0.2),
@@ -284,7 +285,7 @@ algorithm = NSGA2(
 
 from pymoo.termination import get_termination
 
-termination = get_termination("n_gen", 20)
+termination = get_termination("n_gen", 10)
 
 from pymoo.optimize import minimize
 
@@ -458,7 +459,7 @@ ax.set_xticks(np.arange(1, 11, 1))
 ax.set_yticks(np.arange(1, 11, 1))
 ax.set_xlim(problem.xl[0]-1, problem.xu[0]+1)
 ax.set_ylim(problem.xl[1]-1, problem.xu[1]+1)
-ax.set_zlim(500 + 25*(problem.xl[2]-1), 500 + 25* (problem.xu[2]+1))
+ax.set_zlim(problem.xl[2]-100, problem.xu[2]+100)
 plt.tight_layout()
 plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_design_space.pdf", bbox_inches='tight')
 plt.show(block=False)
@@ -471,7 +472,7 @@ for i in range(min(10, len(X))):  # Mostrar as 10 melhores soluções
     print(f"\nSolução {i+1}:")
     print(f"Número de baterias em paralelo: {int(round(X[i,0]))}")
     print(f"Número de supercapacitores em paralelo: {int(round(X[i,1]))}")
-    print(f"Valor limiar de potência: {500 + 25*int(round(X[i,2]))}")
+    print(f"Valor limiar de potência: {int(round(X[i,2]))}")
     print(f"VPL (Valor Presente Líquido): R$ {(-F[i,0]):,.2f}")
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
