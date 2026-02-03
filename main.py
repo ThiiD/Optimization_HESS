@@ -61,7 +61,7 @@ Pb = Pb_usd * cot_dolar     # Preço da bateria em reais
 Puc = Puc_usd * cot_dolar   # Preço do supercapacitor em reais
 
 Vb = 0.596                  # Volume da bateria em L (Fonte: data_sources.xlsx)
-Vuc = 0.00837               # Volume do supercapacitor em L (Fonte: data_sources.xlsx)
+Vuc = 0.496                 # Volume do supercapacitor em L (Fonte: data_sources.xlsx)
 
 Wb = 1.060                  # Peso da bateria em kg (Fonte: data_sources.xlsx)
 Wuc = 0.460                 # Peso do supercapacitor em kg (Fonte: data_sources.xlsx)
@@ -129,10 +129,7 @@ class MyProblem(ElementwiseProblem):
     def _evaluate(self, x, out, *args, **kwargs):
         Np_b = int(round(x[0]))     # Número de baterias em paralelo
         Np_uc = int(round(x[1]))    # Número de supercapacitores em paralelo
-        N_pth = int(round(x[2]))    # Variavel relativa a potencia
-        # Pth = 500 + 25*N_pth        # Potencia de Threshold
-        Pth = N_pth
-
+        Pth = x[2]                  # Variavel relativa a potencia
 
         # Cálculo do número total de componentes
         total_baterias = Np_b * Nm_b * Ns_b
@@ -449,7 +446,11 @@ print(f'F: {F}')
 plt.figure(figsize=(fig_width_cm, fig_height_cm))
 ax = plt.axes(projection='3d')
 X_int = np.round(X).astype(int)
-ax.scatter(X_int[:, 0], X_int[:, 1], X_int[:, 2], s=30, facecolors='r', edgecolors='r', zorder=3)
+try:
+    ax.scatter(X_int[:, 0], X_int[:, 1], X_int[:, 2], s=30, facecolors='r', edgecolors='r', zorder=3)
+except Exception as e:
+    ax.scatter(X_int[0], X_int[1], X_int[2], s=30, facecolors='r', edgecolors='r', zorder=3)
+    print("Solução unica!")
 ax.set_xlabel('Número de Baterias em Paralelo')
 ax.set_ylabel('Número de Supercapacitores em Paralelo')
 ax.set_zlabel("Potência de Limiar")
@@ -470,18 +471,31 @@ print("\nResultados da Otimização:")
 print("------------------------")
 for i in range(min(10, len(X))):  # Mostrar as 10 melhores soluções
     print(f"\nSolução {i+1}:")
-    print(f"Número de baterias em paralelo: {int(round(X[i,0]))}")
-    print(f"Número de supercapacitores em paralelo: {int(round(X[i,1]))}")
-    print(f"Valor limiar de potência: {int(round(X[i,2]))}")
-    print(f"VPL (Valor Presente Líquido): R$ {(-F[i,0]):,.2f}")
+    try:
+        print(f"Número de baterias em paralelo: {int(round(X[i,0]))}")
+        print(f"Número de supercapacitores em paralelo: {int(round(X[i,1]))}")
+        print(f"Valor limiar de potência: {int(round(X[i,2]))}")
+        print(f"VPL (Valor Presente Líquido): R$ {(-F[i,0]):,.2f}")
+    except:
+        print(f"Número de baterias em paralelo: {int(round(X[0]))}")
+        print(f"Número de supercapacitores em paralelo: {int(round(X[1]))}")
+        print(f"Valor limiar de potência: {int(round(X[2]))}")
+        print(f"VPL (Valor Presente Líquido): R$ {(-F[0]):,.2f}")
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------- Seleção da melhor solução ------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
+try:
+    idx_best = np.argmin(F[:, 0])  # Menor valor negativo de F => maior VPL
+    best_Np_b = int(round(X[idx_best, 0]))
+    best_Np_uc = int(round(X[idx_best, 1]))
+    best_Pth = X[idx_best, 2]
+except:
+    idx_best = np.argmin(F[0])  # Menor valor negativo de F => maior VPL
+    best_Np_b = int(round(X[0]))
+    best_Np_uc = int(round(X[1]))
+    best_Pth = X[2]
 
-idx_best = np.argmin(F[:, 0])  # Menor valor negativo de F => maior VPL
-best_Np_b = int(round(X[idx_best, 0]))
-best_Np_uc = int(round(X[idx_best, 1]))
 
 # Rodar a simulação para a melhor solução
 sim = Simulation()
@@ -500,7 +514,7 @@ time = np.arange(len(input_df))
 powers_diesel = input_df["fa08_m2amps"] * input_df["fa00_altoutvolts"]  # em Watts
 
 # Ajustar a simulação para usar a potência do diesel como entrada
-sim.simulate_custom_powers(powers_diesel)
+sim.simulate(data, sheet, best_Pth)
 
 # O restante do código permanece igual, usando os resultados da simulação
 

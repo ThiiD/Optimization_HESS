@@ -169,24 +169,20 @@ class Simulation():
         if sheet == "Dados":            powers = data['Traction Power'] - data["Braking Power"]
         if sheet == "Log":              powers = (data['fa00_altoutvolts'] * data['fa08_m2amps']) / 1000
         
-        # Plota distribuição de potência
-        #self.plot_power_distribution(data, powers)
-        # Plota LUT bateria
-        #self.plot_LUT()
-        
         # Simulação
         for power in powers:
             # Distribuição de potência
             power_bat, power_uc = self.supervisory_control(power, threshold)
             
             # Atualiza bateria
-            i_bat, p_bat_reject_1, flag = self._batt.setCurrent(power_bat)
-            SoC, v_banco_bat, p_bat_reject_2 = self._batt.updateEnergy(flag, i_bat, power_bat, self._dt)
+            i_bat, p_bat_reject_1 = self._batt.setCurrent(power_bat)
+            SoC, v_banco_bat, p_bat_reject_2 = self._batt.updateEnergy(i_bat, 1)
             p_bat_reject = p_bat_reject_1 + p_bat_reject_2
             
             # Atualiza supercapacitor
-            i_uc, p_uc_reject_1, flag = self._uc.setCurrent(power_uc)
-            SoC_uc, v_banco_uc, p_uc_reject_2, i_uc = self._uc.updateEnergy(flag, i_uc, power_uc, self._dt)
+            i_uc, p_uc_reject_1 = self._uc.setCurrent(power_uc)
+            # sleep(1)
+            SoC_uc, v_banco_uc, p_uc_reject_2, i_uc = self._uc.updateEnergy(i_uc, 1)
             p_uc_reject = p_uc_reject_1 + p_uc_reject_2
 
             p_reject = p_bat_reject + p_uc_reject
@@ -208,7 +204,7 @@ class Simulation():
 
         # Plota resultados
         # print(self._SoC_UC)                                     # APAGAR DEPOIS
-        #self.plot_results(data["Time"])
+        # self.plot_results(data["Time"])
 
     def simulate_custom_powers(self, powers, threshold=1000):
         """Executa simulação usando um vetor de potência diretamente como entrada
@@ -277,7 +273,7 @@ class Simulation():
             power_bat = power
             
         return power_bat, power_uc
-
+    
     # def size_energy_storage(self, data: pd.DataFrame, threshold: float, config_bat : dict, config_uc : dict) -> tuple[dict, dict]:
     #     """
     #     Dimensiona banco de baterias e supercapacitores baseado no limiar de potência

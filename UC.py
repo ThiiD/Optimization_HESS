@@ -1,11 +1,8 @@
 import numpy as np
 from time import sleep
 from math import sqrt
-import matplotlib.pyplot as plt
 
 class Uc():
-    fig_width_cm = 24/2.4
-    fig_height_cm = 18/2.4
     def __init__(self):
         """Inicializa um banco de supercapacitores com valores padrão"""
         self._C = 3140                                                              
@@ -27,22 +24,9 @@ class Uc():
         self._stored_energy = 0.5 * self._C_eq * (self._v_banco**2)
         
         self._SoC = 50  # Estado de carga inicial (%)
-        self._configure_plots()
+        self._C_rate = 500  # Valor padrão para taxa C do UC
 
-    def _configure_plots(self):
-        plt.rcParams.update({
-            "text.usetex": True,
-            "font.family": "serif",
-            "font.serif": ["Computer Modern Roman"], # Or other serif font
-            "axes.labelsize": 18,
-            "axes.labelweight": "bold",
-            "font.size": 18,
-            "legend.fontsize": 16,
-            "xtick.labelsize": 16,
-            "ytick.labelsize": 16,
-        })
-
-    def setParams(self, C: float, Ns: int, Np: int, Nm : int, Vnom: float, SoC: float, T_m: int) -> None:
+    def setParams(self, C: float, Ns: int, Np: int, Nm : int, Vnom: float, SoC: float, C_rate: float = None) -> None:
         """Configura os parâmetros do banco de supercapacitores
         :param float C: Capacitância por célula (F)
         :param int Ns: Número de capacitores em série
@@ -50,7 +34,7 @@ class Uc():
         :param int Nm: Número de módulos em série
         :param float Vnom: Tensão nominal por célula (V)
         :param float SoC: Estado de carga inicial do banco (%)
-        :param int T_m: Multiplicador da capacidade do banco
+        :param float C_rate: Taxa C máxima permitida (opcional)
         :raises ValueError: Se os parâmetros forem inválidos
         """
         if any(x <= 0 for x in [C, Ns, Np, Nm, Vnom]):
@@ -65,7 +49,6 @@ class Uc():
         self._Nm = Nm
         self._v_cap = Vnom
         self._SoC = SoC
-        self._T_m = T_m
 
         # Recalcula parâmetros
         self._v_total = self._v_cap * self._Ns * self._Nm
@@ -76,46 +59,8 @@ class Uc():
         self._stored_energy = self._total_energy*(self._SoC/100)
 
         self._v_banco = sqrt((2 * self._stored_energy) / self._C_eq)
-        
-
-    def plotUCHealthGraph(self):
-        try:
-            n_ciclos = np.linspace(0, 1000000, 100000)
-            print("n_ciclos:", n_ciclos)
-            cte_degradation = -2.23e-7
-            
-            
-            uc_health = 100 * np.exp(cte_degradation * n_ciclos)
-            print(f'uc_health: {uc_health}')
-            plt.figure(figsize = (self.fig_width_cm, self.fig_height_cm/1.5))
-            plt.plot(n_ciclos, uc_health, linewidth = 2, color = 'tab:blue')
-            plt.xlabel("Número de Ciclos")
-            plt.ylabel(r"Saúde do Supercapacitor (\%)")
-            plt.title("Saúde do Supercapacitor por Ciclos")
-            plt.grid()
-            plt.xlim([0, 1000000])
-            plt.ylim([80, 100])
-            plt.tight_layout()
-            plt.savefig("Figuras\\curva_degradacao_uc.pdf", dpi=300, bbox_inches='tight')
-            plt.show()
-
-            # df = pd.read_csv("data\\LUT_saude_batt.csv", sep=";")
-            # df.sort_values(by='Ciclos', inplace=True)
-            # plt.figure(figsize=(self.fig_width_cm, self.fig_height_cm/1.5))
-            # plt.plot(df['Ciclos'], df['Saude'], color = 'tab:blue', linewidth = 2, label = "Saúde da bateria")
-            # plt.grid()
-            # plt.xlim([0,5300])
-            # plt.ylim([60, 100])
-            # plt.xlabel("Número de Ciclos")
-            # plt.ylabel(r"Saúde da bateria [\%]")
-            # plt.title("Saúde da bateria por ciclos")
-            # plt.tight_layout()
-            # plt.savefig("Figuras\\curva_degradacao_bateria.pdf", dpi=300, bbox_inches='tight')
-            # plt.show()
-        except Exception as e:
-            print("Erro ao plotar gráfico de saúde do supercapacitor:", e)
-        
-        
+        if C_rate is not None:
+            self._C_rate = C_rate
 
     def energy2soc(self, energy: float) -> float:
         """
@@ -151,23 +96,19 @@ class Uc():
         return sqrt((SoC * self._total_energy) / (50 * self._C_eq))
     
 
-    def setCurrent(self, power: float) -> (float|float|int):
+    def setCurrent(self, power: float) -> (float|float):
         """
         Calcula corrente baseada na potência requerida
         :param float power: Potência requerida (W)
         :return float i_sat: Corrente (A)
         :return float p_reject: Potência rejeitada (kW)
-        :return int flag: Flag de saturação de corrente
         """
         i = power / self._v_banco
-        i_max = 280 * self._Np * self._T_m                          # Corrente maxima no banco de UC
+        i_max = self._C_rate * self._Np                                      # Corrente máxima usando taxa C
         i_sat = np.clip(i, -i_max, i_max)                           # Limita corrente em ambas direções
         i_reject = i - i_sat                                        # Calcula corrente rejeitada
         p_reject = (i_reject * self._v_banco) / 1000                # Calcula potência rejeitada
-        flag = 0
-        if i_reject != 0: flag = 1
-        else: flag = 0
-        return i_sat, p_reject, flag
+        return i_sat, p_reject
 
 
     def getTotalEnergy(self) -> float:
@@ -178,23 +119,17 @@ class Uc():
         return self._total_energy
     
     
-    def updateEnergy(self, flag: int, current: float, power: float, dt: float) -> tuple[float, float, float, float]:
+    def updateEnergy(self, current: float, dt: float) -> tuple[float, float, float, float]:
         """
         Atualiza energia do banco usando a corrente
-        :param int flag: Flag de saturação de corrente
         :param float current: Corrente do banco (A, + carga, - descarga)
-        :param float power: Potência à ser gerenciada pelo banco
         :param float dt: Intervalo de tempo (s)
         :return tuple[float, float]: (Tensão do banco, Energia armazenada)
         :return float p_reject: Potência rejeitada (kW)
         :return float i_uc: Verdadeira corrente do banco (A)
         """
-        # Calcula variação de energia (P = V*I) para o caso em que há saturação de corrente
-        # Caso contrario, utiliza o threshold de potência para atualizar a energia
-        if flag == 0:
-            energy_variation = power * dt / 3600
-        else:
-            energy_variation = -1 * self._v_banco * current * dt
+        # Calcula variação de energia (P = V*I)
+        energy_variation = -1 * self._v_banco * current * dt
         # print(f'DEBUG: energy_variation = {energy_variation}')
         
         # Calcula nova energia
@@ -213,8 +148,9 @@ class Uc():
      
         
         p_reject = ((new_energy - clip_energy) / dt) / 1000         # Potência rejeitada (kW)
-        i_reject = ((clip_energy - new_energy) / dt) / self._v_banco
-        i_uc = current - i_reject
+        i_uc = ((new_energy - self._stored_energy) / dt) / self._v_banco
+        # i_reject = ((clip_energy - new_energy) / dt) / self._v_banco
+        # i_uc = current - i_reject
         # print(f'DEBUG: p_reject = {p_reject}')
 
         # print(f'DEBUG: i_reject = { i_reject}')
@@ -232,9 +168,12 @@ class Uc():
         # sleep(1)
         
         return self._SoC, self._v_banco, p_reject, i_uc
-    
 
-
-if __name__ == "__main__":
-    uc = Uc()
-    uc.plotUCHealthGraph()
+    def setC_rate(self, C_rate: float) -> None:
+        """
+        Define a taxa C máxima permitida para o supercapacitor.
+        :param float C_rate: Taxa C desejada
+        """
+        if C_rate <= 0:
+            raise ValueError("A taxa C deve ser positiva.")
+        self._C_rate = C_rate
