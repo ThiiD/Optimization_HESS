@@ -36,7 +36,7 @@ total_elepot = 2000
 preco_razao_elepot = 1000      # Razao R$/kW
 
 taxa_disponibilidade = 0.8  # 80% de disponibilidade diária
-duracao_ciclo_horas = 0.5  # 30 minutos por ciclo
+duracao_ciclo_horas = 0.2522  # 30 minutos por ciclo
 
 dias_por_mes = 30  # Considerando 30 dias por mês
 
@@ -45,7 +45,7 @@ ciclos_bateria_vida = 5300  # ciclos até 80% da capacidade (Baseado no datashee
 horas_supercap_vida = 1000000  # horas até 80% da capacidade (Baseado no datasheet do supercapacitor)
 
 # Parâmetros financeiros para VPL
-horizonte_analise_meses = 12  # 10 anos
+horizonte_analise_meses = 24  # 10 anos
 
 # Taxa de desconto mensal (ex: 10% ao ano -> 0.10/12)
 taxa_desconto_anual = 0.10                                                  # Taxa minima de atratividade anual 
@@ -259,7 +259,7 @@ class MyProblem(ElementwiseProblem):
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
 problem = MyProblem()
-arquivo = "CR-3112_28-09-24_AGGREGATED.xlsx"
+arquivo = "UMAX_18-10-24.xlsx"
 diretorio_figuras = "Figuras/" + arquivo.split(".")[0]
 os.makedirs(diretorio_figuras, exist_ok=True)
 data = "data/" + arquivo

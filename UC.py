@@ -106,13 +106,13 @@ class Uc():
         :return float i_sat: Corrente (A)
         :return float p_reject: Potência rejeitada (kW)
         """
-        print(f"Power_uc : {power}")
+        # print(f"Power_uc : {power}")                                  # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
         i = power / self._v_banco
         i_max = self._C_rate * self._Cap_uc * self._Np              # Corrente máxima usando taxa C
         i_sat = np.clip(i, -i_max, i_max)                           # Limita corrente em ambas direções
         i_reject = i - i_sat                                        # Calcula corrente rejeitada
         p_reject = (i_reject * self._v_banco) / 1000                # Calcula potência rejeitada
-        print(f'Corrent uc: {i_sat}')
+        # print(f'Corrent uc: {i_sat}')                             # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
         return i_sat, p_reject
 
 
@@ -134,16 +134,16 @@ class Uc():
         :return float i_uc: Verdadeira corrente do banco (A)
         """
         # Calcula variação de energia (P = V*I)
-        print(f'Tensao : {self._v_banco}V    ;   Corrente: {current}A')
+        # print(f'Tensao : {self._v_banco}V    ;   Corrente: {current}A')   # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
         energy_variation = -1 * self._v_banco * current * dt
-        print(f'energy_variation: {energy_variation}')
+        # print(f'energy_variation: {energy_variation}')                    # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
         # print(f'DEBUG: energy_variation = {energy_variation}')
         
         # Calcula nova energia
         # print(f'DEBUG: self._stored_energy = {self._stored_energy}')
         # print(f'DEBUG: total_energy = {self._total_energy}')
         new_energy = self._stored_energy + energy_variation
-        print(f'new_energy: {new_energy}')
+        # print(f'new_energy: {new_energy}')                                # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
         # print(f'DEBUG: new_energy = {new_energy}')
         
         # Limita energia baseado no SoC
@@ -152,15 +152,15 @@ class Uc():
         min_energy = self._total_energy * (self._SoC_min/100)
         # print(f'DEBUG: min_energy = {min_energy}')
         clip_energy = np.clip(new_energy, min_energy, max_energy)
-        print(f'clip_energy: {clip_energy}')
+        # print(f'clip_energy: {clip_energy}')                             # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
         # print(f'DEBUG: clip_energy = {clip_energy}')
-        print(f'stored_energy: {self._stored_energy}')
+        # print(f'stored_energy: {self._stored_energy}')                    # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
      
         
         p_reject = -1*((new_energy - clip_energy) / dt) / 1000         # Potência rejeitada (kW)
-        print(f'p_reject: {p_reject}')
+        # print(f'p_reject: {p_reject}')                                    # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
         i_uc = -1 * ((clip_energy - self._stored_energy) / dt) / self._v_banco
-        print(f"Nova corrente: {i_uc}")
+        # print(f"Nova corrente: {i_uc}")                                   # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
         # i_reject = ((clip_energy - new_energy) / dt) / self._v_banco
         # i_uc = current - i_reject
         # print(f'DEBUG: p_reject = {p_reject}')
@@ -172,13 +172,13 @@ class Uc():
         # Atualiza estados
         self._stored_energy = clip_energy
         self._SoC = (self._stored_energy / self._total_energy) * 100
-        print(f"Novo SoC: {self._SoC}")
+        # print(f"Novo SoC: {self._SoC}")                                   # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
         # print(f'DEBUG: self._SoC = {self._SoC}')
         self._v_banco = self.energy2voltage(clip_energy, self._SoC)
-        print(f'Nova tnesão: {self._v_banco}')
+        # print(f'Nova tnesão: {self._v_banco}')                                # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
         # print(f'DEBUG: self._v_banco = {self._v_banco}')
 
-        print("-------------------------------------------------------------")
+        # print("-------------------------------------------------------------")    # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
         # sleep(1)
         
         return self._SoC, self._v_banco, p_reject, i_uc
