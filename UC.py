@@ -9,7 +9,8 @@ class Uc():
         self._Ns = 40                                                               
         self._Np = 10                                                               
         self._Nm = 5                                                                
-        self._v_cap = 3                                                             
+        self._v_cap = 3   
+        self._Cap_uc = 280                                           
         
         self._SoC_max = 100                                                         
         self._SoC_min = 3                                                           
@@ -24,11 +25,12 @@ class Uc():
         self._stored_energy = 0.5 * self._C_eq * (self._v_banco**2)
         
         self._SoC = 50  # Estado de carga inicial (%)
-        self._C_rate = 500  # Valor padrão para taxa C do UC
+        self._C_rate = 8  # Valor padrão para taxa C do UC
 
-    def setParams(self, C: float, Ns: int, Np: int, Nm : int, Vnom: float, SoC: float, C_rate: float = None) -> None:
+    def setParams(self, C: float, Cap_uc: float, Ns: int, Np: int, Nm : int, Vnom: float, SoC: float, C_rate: float = None) -> None:
         """Configura os parâmetros do banco de supercapacitores
         :param float C: Capacitância por célula (F)
+        :param float Cap_uc: Capacidade do supercapacitor (Ah)
         :param int Ns: Número de capacitores em série
         :param int Np: Número de strings em paralelo
         :param int Nm: Número de módulos em série
@@ -44,6 +46,7 @@ class Uc():
             raise ValueError("SoC deve estar entre 0% e 100%")
 
         self._C = C
+        self._Cap_uc = Cap_uc
         self._Ns = Ns
         self._Np = Np
         self._Nm = Nm
@@ -104,7 +107,7 @@ class Uc():
         :return float p_reject: Potência rejeitada (kW)
         """
         i = power / self._v_banco
-        i_max = self._C_rate * self._Np                                      # Corrente máxima usando taxa C
+        i_max = self._C_rate * self._Cap_uc * self._Np              # Corrente máxima usando taxa C
         i_sat = np.clip(i, -i_max, i_max)                           # Limita corrente em ambas direções
         i_reject = i - i_sat                                        # Calcula corrente rejeitada
         p_reject = (i_reject * self._v_banco) / 1000                # Calcula potência rejeitada

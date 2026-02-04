@@ -74,7 +74,7 @@ Nm_uc = 20                  # Número de módulos de supercapacitores
 Cap_b = 40.0                # Capacidade da bateria em Ah
 T_xb = 6                    # Multiplicador da capacidade da bateria
 Cap_uc = 280.0              # Capacidade do supercapacitor em Ah
-T_xuc = 3                   # Multiplicador da capacidade do supercapacitor
+T_xuc = 8                   # Multiplicador da capacidade do supercapacitor
 
 
 # Definição do problema de otimização
@@ -143,7 +143,7 @@ class MyProblem(ElementwiseProblem):
         if cache_key not in self.simulation_cache:
             sim = Simulation()
             sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.2, SoC=50, T_m = T_xb)
-            sim.setParam_UC(C=3400, Ns=Ns_uc, Np=Np_uc, Nm=Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
+            sim.setParam_UC(C=3400, Cap_uc=Cap_uc, Ns=Ns_uc, Np=Np_uc, Nm=Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
             # data = r"data\CR-3112_28-09-24_AGGREGATED.xlsx"
             # sheet = "Log"
             sim.simulate(self._data, self._sheet, threshold=Pth)
@@ -500,7 +500,7 @@ except:
 # Rodar a simulação para a melhor solução
 sim = Simulation()
 sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=best_Np_b, Nm=Nm_b, Vnom=3.2, SoC=50, T_m=T_xb)
-sim.setParam_UC(C=3400, Ns=Ns_uc, Np=best_Np_uc, Nm=Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
+sim.setParam_UC(C=3400, Cap_uc=Cap_uc, Ns=Ns_uc, Np=best_Np_uc, Nm=Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
 # data = r"data\CR-3112_28-09-24_AGGREGATED.xlsx"
 # sheet = "Log"
 

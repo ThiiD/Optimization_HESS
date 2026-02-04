@@ -58,9 +58,10 @@ class Simulation():
         }
         self._batt.setParams(C, Ns, Np, Nm, Vnom, SoC, T_m)
 
-    def setParam_UC(self, C: float, Ns: int, Np: int, Nm : int, Vnom: float, SoC: float, T_m: int) -> None:
+    def setParam_UC(self, C: float, Cap_uc: float, Ns: int, Np: int, Nm : int, Vnom: float, SoC: float, T_m: int) -> None:
         """Configura parâmetros do supercapacitor
         :param float C: Capacitância do supercapacitor (F)
+        :param float Cap_uc: Capacidade do supercapacitor (Ah)
         :param int Ns: Número de supercapacitores em série
         :param int Np: Número de supercapacitores em paralelo
         :param int Nm: Número de módulos
@@ -70,6 +71,7 @@ class Simulation():
         """
         self._uc_params = {
             'C': C,
+            'Cap_uc': Cap_uc,
             'Ns': Ns,
             'Np': Np,
             'Nm': Nm,
@@ -77,7 +79,7 @@ class Simulation():
             'SoC': SoC,
             'T_m': T_m
         }
-        self._uc.setParams(C, Ns, Np, Nm, Vnom, SoC, T_m)
+        self._uc.setParams(C, Cap_uc, Ns, Np, Nm, Vnom, SoC, T_m)
 
     def plot_power_distribution(self, data, powers):
         """Plota distribuição de potência"""
