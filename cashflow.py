@@ -39,7 +39,7 @@ class CashFlow:
         plt.axhline(y=0, color='black', linestyle='-', alpha=0.3)
         
         plt.xlabel('Meses')
-        plt.ylabel('Fluxo de Caixa (USD)')
+        plt.ylabel('Fluxo de Caixa (BRL)')
         plt.title('Fluxo de Caixa Mensal')
         plt.legend()
         plt.grid(True, alpha=0.3)

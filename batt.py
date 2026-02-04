@@ -87,9 +87,9 @@ class Batt():
         :return float p_reject: Potência rejeitada (kW)
         """
         i = power / self._v_banco
-        i_sat = np.clip(i, -self._C_rate * self._Np * self._C, self._C_rate * self._Np * self._C)  # Limita corrente usando taxa C
-        i_reject = i - i_sat                                                 # Calcula corrente rejeitada
-        p_reject = (i_reject * self._v_banco)/1000                           # Calcula potência rejeitada
+        i_sat = np.clip(i, -self._C_rate * self._Np * self._C, self._C_rate * self._Np * self._C)       # Limita corrente usando taxa C
+        i_reject = i - i_sat                                                                            # Calcula corrente rejeitada
+        p_reject = (i_reject * self._v_banco)/1000                                                      # Calcula potência rejeitada
         return i_sat, p_reject
 
     def getTotalEnergy(self) -> float:

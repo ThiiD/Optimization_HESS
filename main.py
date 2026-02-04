@@ -462,7 +462,7 @@ ax.set_xlim(problem.xl[0]-1, problem.xu[0]+1)
 ax.set_ylim(problem.xl[1]-1, problem.xu[1]+1)
 ax.set_zlim(problem.xl[2]-100, problem.xu[2]+100)
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_design_space.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_01_design_space.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 
@@ -549,7 +549,7 @@ axs[2].legend(loc="upper right")
 
 
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_power_current_voltage.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_02_power_current_voltage.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -649,7 +649,7 @@ axs[2, 1].set_xlim([0, time[-1]])
 # axs[2].grid()
 
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_power_current_voltage_subplots.pdf", bbox_inches='tight')    
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_03_power_current_voltage_subplots.pdf", bbox_inches='tight')    
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -694,7 +694,7 @@ axs[2, 1].grid()
 
 plt.suptitle('SoC, Tensão e Corrente: Bateria (esq.) x Supercapacitor (dir.)')
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_soc_voltage_current.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_04_soc_voltage_current.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 
@@ -721,7 +721,7 @@ plt.legend(loc='upper right')
 plt.grid()
 plt.xlim([0, time[-1]])
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_power_comparison.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_05_power_comparison.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -738,6 +738,7 @@ if hasattr(problem, 'melhor_fluxo_caixa'):
     # plt.xlabel('Meses')
     # plt.ylabel('Fluxo de Caixa (USD)')
     # plt.show(block=True)
+    plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_06_cashflow.pdf", bbox_inches='tight')
 else:
     print("Aviso: Fluxo de caixa da melhor solução não encontrado.")
 
@@ -764,7 +765,7 @@ plt.ylim(75, 105)
 plt.xlim(0, horizonte_analise_meses)
 plt.grid()
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_battery_degradation.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_07_battery_degradation.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -788,7 +789,7 @@ plt.ylim(99.8, 100.2)
 plt.xlim(0, horizonte_analise_meses)
 plt.grid()
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_supercapacitor_degradation.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_08_supercapacitor_degradation.pdf", bbox_inches='tight')
 plt.show(block=True)
 
 # # ----------------------------------------------------------------------------------------------------------------------------------------------------

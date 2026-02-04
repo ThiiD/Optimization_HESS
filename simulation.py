@@ -174,7 +174,9 @@ class Simulation():
         # Simulação
         for power in powers:
             # Distribuição de potência
+            print(f'power: {power}')
             power_bat, power_uc = self.supervisory_control(power, threshold)
+            print(f"Setpoints   :power_bat: {power_bat}    ;   power_uc: {power_uc}")
             
             # Atualiza bateria
             i_bat, p_bat_reject_1 = self._batt.setCurrent(power_bat)
