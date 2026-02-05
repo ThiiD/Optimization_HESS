@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from time import sleep
+import pandas as pd
 
 from pymoo.core.problem import ElementwiseProblem
 from pymoo.algorithms.moo.nsga2 import NSGA2
@@ -36,7 +38,6 @@ total_elepot = 2000
 preco_razao_elepot = 1000      # Razao R$/kW
 
 taxa_disponibilidade = 0.8  # 80% de disponibilidade diária
-duracao_ciclo_horas = 0.2522  # 30 minutos por ciclo
 
 dias_por_mes = 30  # Considerando 30 dias por mês
 
@@ -45,7 +46,7 @@ ciclos_bateria_vida = 5300  # ciclos até 80% da capacidade (Baseado no datashee
 horas_supercap_vida = 1000000  # horas até 80% da capacidade (Baseado no datasheet do supercapacitor)
 
 # Parâmetros financeiros para VPL
-horizonte_analise_meses = 24  # 10 anos
+horizonte_analise_meses = 12  # 10 anos
 
 # Taxa de desconto mensal (ex: 10% ao ano -> 0.10/12)
 taxa_desconto_anual = 0.10                                                  # Taxa minima de atratividade anual 
@@ -124,6 +125,10 @@ class MyProblem(ElementwiseProblem):
     def setData(self, data: str, sheet: str):
         self._data = data
         self._sheet = sheet
+        df = pd.read_excel(data, sheet_name=sheet)
+        self._duracao_ciclo_operacao_hora = len(df) * 1 /3600
+        print(self._duracao_ciclo_operacao_hora)
+        sleep(5)
 
 
     def _evaluate(self, x, out, *args, **kwargs):
@@ -164,7 +169,7 @@ class MyProblem(ElementwiseProblem):
         print(f"Energia absorvida por ciclo (Np_b: {Np_b}, Np_uc: {Np_uc}, Pth: {Pth}): {energia_absorvida_ciclo} Wh")
         # Número de ciclos por dia e por mês
         horas_operacao_dia = 24 * taxa_disponibilidade
-        ciclos_por_dia = horas_operacao_dia / duracao_ciclo_horas
+        ciclos_por_dia = horas_operacao_dia / self._duracao_ciclo_operacao_hora
         self.ciclos_por_mes = ciclos_por_dia * dias_por_mes
 
         # Energia absorvida por mês (Wh -> kWh)
@@ -185,7 +190,7 @@ class MyProblem(ElementwiseProblem):
         saude_uc = []                      
         troca_uc = []                      
         mes = 0
-        numero_ciclos_batt = 0
+        numero_ciclos_batt_total = 0
         custo_bateria = total_baterias * Pb
         custo_supercap = total_supercaps * Puc
 
@@ -203,25 +208,26 @@ class MyProblem(ElementwiseProblem):
                 balanco_mes += economia_mensal
 
                 # Verifica substituição da bateria
-                #numero_ciclos_batt += round(((max(sim._SoC) - min(sim._SoC)) / 100) * self.ciclos_por_mes)      # Baliza o numero de ciclos da bateria conforme DoD
-                #numero_ciclos_batt += self.ciclos_por_mes                                                       # Considera cada ciclo de operação um ciclo completo pra bateria
+                try:
+                    print(f'Max SoC: {max(sim._SoC)}        ;       Min SoC: {min(sim._SoC)}')
+                except:
+                    print(f"EXCEÇÃO: {sim._SoC}")
+                    sleep(50)
+                numero_ciclos_batt_total += round(((max(sim._SoC) - min(sim._SoC)) / 100) * self.ciclos_por_mes)        # Calcula o numero de ciclos totais já realizados.
+                #numero_ciclos_batt += self.ciclos_por_mes                                                              # Considera cada ciclo de operação um ciclo completo pra bateria
 
-                
-                #saude_bat_mensal = sim._batt.batteryHealth(numero_ciclos_batt, ciclos_bateria_vida) / 100
-                #print(f"Número de ciclos da bateria: {numero_ciclos_batt}   ;   Saúde da bateria: {saude_bat_mensal*100}%")
-                saude_bat_mensal = saude_bat[-1] - (0.2*self.ciclos_por_mes/ciclos_bateria_vida)
-                if saude_bat_mensal <= 0.8:
-                # if numero_ciclos_batt % ciclos_bateria_vida > sum(troca_bat):
-                    saude_bat_mensal = 1
+                if (numero_ciclos_batt_total / ciclos_bateria_vida) % 1 - 1 > sum(troca_bat):                           # Necessário realizar a troca da bateria
+                    saude_bat_mensal = sim._batt.batteryHealth(numero_ciclos_batt_total % ciclos_bateria_vida, ciclos_bateria_vida)
                     saude_bat.append(saude_bat_mensal)
                     troca_bat.append(1)
                     balanco_mes += -custo_bateria
                 else:
+                    saude_bat_mensal = sim._batt.batteryHealth(numero_ciclos_batt_total % ciclos_bateria_vida, ciclos_bateria_vida)
                     saude_bat.append(saude_bat_mensal)
                     troca_bat.append(0)
 
                 # Verifica substituição do supercapacitor
-                saude_uc_mensal = saude_uc[-1] - (0.2*self.ciclos_por_mes*duracao_ciclo_horas/horas_supercap_vida)
+                saude_uc_mensal = saude_uc[-1] - (0.2*self.ciclos_por_mes*self._duracao_ciclo_operacao_hora/horas_supercap_vida)
                 if saude_uc_mensal <= 0.8:
                     saude_uc_mensal = 1
                     saude_uc.append(saude_uc_mensal)
@@ -259,7 +265,7 @@ class MyProblem(ElementwiseProblem):
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
 problem = MyProblem()
-arquivo = "UMAX_18-10-24.xlsx"
+arquivo = "CR-3112_28-09-24_AGGREGATED.xlsx"
 diretorio_figuras = "Figuras/" + arquivo.split(".")[0]
 os.makedirs(diretorio_figuras, exist_ok=True)
 data = "data/" + arquivo
@@ -746,7 +752,7 @@ else:
 # ----------------------------------------------- Gráfico de Degradação da Bateria ----------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # horas_operacao_dia = 24 * taxa_disponibilidade
-# ciclos_por_dia = horas_operacao_dia / duracao_ciclo_horas
+# ciclos_por_dia = horas_operacao_dia / self._duracao_ciclo_operacao_hora
 # ciclos_por_mes = ciclos_por_dia * dias_por_mes
 # capacidade_bateria = np.ones(horizonte_analise_meses)                       # Cria um vetor para análisar mes a mes a saude da bateria
 # print(f'horizonte_analise_meses: {horizonte_analise_meses}')

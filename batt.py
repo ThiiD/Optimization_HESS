@@ -1,7 +1,11 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 class Batt():
+    fig_width_cm = 24/2.4
+    fig_height_cm = 18/2.4
+
     def __init__(self):
         """Inicializa uma bateria com valores padrão"""
         self._C = 40
@@ -157,3 +161,74 @@ class Batt():
         # Garante que os limites não ultrapassem 0% ou 100%
         self._min_SoC = max(0, self._min_SoC)
         self._max_SoC = min(100, self._max_SoC)
+
+
+    def batteryHealth(self, cycles_used: int, maximum_cycles: int) -> float:
+        """
+        Calcula a saúde da bateria baseado no número de ciclos usados
+        :param int cycles_used: Número de ciclos usados
+        :param int maximum_cycles: Número máximo de ciclos antes da falha
+        :return float: Saúde da bateria (%)
+        """
+        try:
+            df = pd.read_csv("data\\LUT_saude_batt.csv", sep=";")
+            indice_proximo = (df['Ciclos'] - (cycles_used % maximum_cycles)).abs().idxmin()
+            health = df.loc[indice_proximo, 'Saude']
+            print(f"Indice: {indice_proximo}    ;   Ciclos: {cycles_used}   ;   Saúde da bateria: {health}%")
+            return float(health)
+        except Exception as e:
+            print("Erro ao ler LUT de saúde da bateria:", e)
+            return e
+        
+    def plotBatterySoCGraph(self):
+        """
+        Plota o gráfico de Tensão x SoC da bateria
+        """
+        try:
+            df = pd.read_csv("data\\LUT_batt.csv", sep=";")
+            df["SoC"] = 100 - df["SoC"]  # Inverte SoC para corresponder ao padrão de carga
+            plt.figure(figsize=(self.fig_width_cm, self.fig_height_cm/1.5))
+            plt.plot(df['SoC'], df['Tensao'], color = 'tab:blue', linewidth = 2, label = "Tensão da bateria")
+            plt.grid()
+            plt.xlim([0,100])
+            # plt.ylim([2.5, 4.2])
+            plt.xlabel(r"Estado de Carga [\%]")
+            plt.ylabel("Tensão da célula [V]")
+            plt.title("Curva característica da bateria")
+            plt.tight_layout()
+            plt.savefig("Figuras\\curva_soc_bateria.pdf", dpi=300, bbox_inches='tight')
+            plt.show(block = False)
+        except Exception as e:
+            print("Erro ao plotar gráfico de SoC da bateria:", e)
+
+    def plotBatteryHealthGraph(self):
+        """
+        Plota o gráfico de saúde da bateria
+        """
+        try:
+            df = pd.read_csv("data\\LUT_saude_batt.csv", sep=";")
+            df.sort_values(by='Ciclos', inplace=True)
+            plt.figure(figsize=(self.fig_width_cm, self.fig_height_cm/1.5))
+            plt.plot(df['Ciclos'], df['Saude'], color = 'tab:blue', linewidth = 2, label = "Saúde da bateria")
+            plt.grid()
+            plt.xlim([0,5300])
+            plt.ylim([60, 100])
+            plt.xlabel("Número de Ciclos")
+            plt.ylabel(r"Saúde da bateria [\%]")
+            plt.title("Saúde da bateria por ciclos")
+            plt.tight_layout()
+            plt.savefig("Figuras\\curva_degradacao_bateria.pdf", dpi=300, bbox_inches='tight')
+            plt.show(block = False)
+        except Exception as e:
+            print("Erro ao plotar gráfico de saúde da bateria:", e)
+
+
+if __name__ == "__main__":
+    batt = Batt()
+    batt.setParams(40, 16, 3, 24, 3.25, 50, 10)
+    batt.plotBatterySoCGraph()
+    batt.batteryHealth(2000, 5500)
+    batt.plotBatteryHealthGraph()
+
+
+    plt.show(block = True)
