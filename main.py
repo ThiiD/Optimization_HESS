@@ -127,8 +127,6 @@ class MyProblem(ElementwiseProblem):
         self._sheet = sheet
         df = pd.read_excel(data, sheet_name=sheet)
         self._duracao_ciclo_operacao_hora = len(df) * 1 /3600
-        print(self._duracao_ciclo_operacao_hora)
-        sleep(5)
 
 
     def _evaluate(self, x, out, *args, **kwargs):
@@ -160,9 +158,12 @@ class MyProblem(ElementwiseProblem):
                 np.abs(np.sum(p_batt_arr[p_batt_arr < 0])) +
                 np.abs(np.sum(p_uc_arr[p_uc_arr < 0]))
             ) / 3600  # Wh
-            self.simulation_cache[cache_key] = (energia_rejeitada, energia_absorvida)
+            self.simulation_cache[cache_key] = (energia_rejeitada, energia_absorvida, sim._SoC, sim._SoC_UC)
         else:
-            energia_rejeitada, energia_absorvida = self.simulation_cache[cache_key]
+            sim = Simulation()
+            sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.2, SoC=50, T_m = T_xb)
+            sim.setParam_UC(C=3400, Cap_uc=Cap_uc, Ns=Ns_uc, Np=Np_uc, Nm=Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
+            energia_rejeitada, energia_absorvida, sim._SoC, sim._SoC_UC = self.simulation_cache[cache_key]
 
         # Energia absorvida por ciclo (Wh)
         energia_absorvida_ciclo = energia_absorvida
@@ -199,7 +200,7 @@ class MyProblem(ElementwiseProblem):
             balanco_mes = 0
             if mes == 0:
                 fluxo_caixa.append(-custo_inicial)  # Investimento inicial
-                saude_bat.append(1)                 # Saude da bateria em 100% no mes 0
+                saude_bat.append(100)                 # Saude da bateria em 100% no mes 0
                 troca_bat.append(0)                 # Nao a troca da bateria no mes 0 (saida ja realizada no custo inicial)
                 saude_uc.append(1)                  # Saude do UC em 100% no mes 0
                 troca_uc.append(0)                  # Nao ha troca de UC no mes 0 (saida ja realizada no custo inicial)
@@ -208,15 +209,14 @@ class MyProblem(ElementwiseProblem):
                 balanco_mes += economia_mensal
 
                 # Verifica substituição da bateria
-                try:
-                    print(f'Max SoC: {max(sim._SoC)}        ;       Min SoC: {min(sim._SoC)}')
-                except:
-                    print(f"EXCEÇÃO: {sim._SoC}")
-                    sleep(50)
-                numero_ciclos_batt_total += round(((max(sim._SoC) - min(sim._SoC)) / 100) * self.ciclos_por_mes)        # Calcula o numero de ciclos totais já realizados.
+                # try:
+                numero_ciclos_batt_total +=  round(((max(sim._SoC) - min(sim._SoC)) / 100) * self.ciclos_por_mes) #round(((max_SoC - min_SoC) / 100) * self.ciclos_por_mes)        # Calcula o numero de ciclos totais já realizados.
+                # except Exception as e:
+                #     numero_ciclos_batt_total += round(((max_SoC - min_SoC) / 100) * self.ciclos_por_mes)  
                 #numero_ciclos_batt += self.ciclos_por_mes                                                              # Considera cada ciclo de operação um ciclo completo pra bateria
-
-                if (numero_ciclos_batt_total / ciclos_bateria_vida) % 1 - 1 > sum(troca_bat):                           # Necessário realizar a troca da bateria
+                print(f"Soc min: {min(sim._SoC)}    ;   Soc max: {max(sim._SoC)}    ;   Numero de ciclos totais da bateria: {numero_ciclos_batt_total}")
+                print(f"Verificando substituição da bateria: {(numero_ciclos_batt_total / ciclos_bateria_vida) - 1} > {sum(troca_bat)}")
+                if (numero_ciclos_batt_total / ciclos_bateria_vida) - 1 > sum(troca_bat):                           # Necessário realizar a troca da bateria
                     saude_bat_mensal = sim._batt.batteryHealth(numero_ciclos_batt_total % ciclos_bateria_vida, ciclos_bateria_vida)
                     saude_bat.append(saude_bat_mensal)
                     troca_bat.append(1)
@@ -257,7 +257,9 @@ class MyProblem(ElementwiseProblem):
         if not hasattr(self, 'melhor_vpl') or vpl > self.melhor_vpl:
             self.melhor_vpl = vpl
             self.saude_bat = saude_bat
+            self.troca_bat = troca_bat
             self.saude_uc = saude_uc
+            self.troca_uc = troca_uc
             self.melhor_fluxo_caixa = fluxo_caixa.copy()
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -763,7 +765,9 @@ else:
 #     else:
 #         capacidade_bateria[i] = 1  # Após vida útil, mantém 80%
 plt.figure(figsize=(fig_width_cm, fig_height_cm/1.5))
-plt.step(np.arange(horizonte_analise_meses), np.array(problem.saude_bat) * 100, where="post")
+plt.step(np.arange(horizonte_analise_meses), np.array(problem.saude_bat), where="post")
+print(f"Saúde da bateria: {problem.saude_bat}")
+print(f"troca de bateria: {problem.troca_bat}")
 plt.title('Degradação da Bateria ao Longo do Tempo')
 plt.xlabel('Meses')
 plt.ylabel(r'Capacidade Residual [\%]')
