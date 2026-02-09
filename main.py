@@ -59,10 +59,10 @@ potencia_de_limiar_max = 2000                                       # Potência 
 max_pth = round(potencia_de_limiar_max / step_pth)                  # Número discreto máximo de passos para a potência de limiar
 min_pth = 0                                                         # Número discreto mínimo de passos para a potência de limiar
 
-min_uc = 1                                                          # Número minimo de supercapacitores
+min_uc = 0                                                          # Número minimo de supercapacitores
 max_uc = 10                                                         # Número máximo de supercapacitores
 
-min_bat = 1                                                         # Número mínimo de baterias
+min_bat = 0                                                         # Número mínimo de baterias
 max_bat = 10                                                        # Número máximo de baterias
 
 # Definição dos parametros do problema
@@ -127,7 +127,7 @@ class MyProblem(ElementwiseProblem):
 
     def __init__(self):
         super().__init__(n_var=3,                                           # Np_b, Np_uc e Pth
-                         n_obj=1,                                           # VPL e Volume
+                         n_obj=1,                                           # VPL e Peso
                          n_ieq_constr=0,                                    # Sem restrições
                          xl=np.array([min_bat, min_uc, min_pth]),           # Mínimo de 1 para cada elemento armazenador e 0 para potencia (0 kW)
                          xu=np.array([max_bat, max_uc, max_pth]),           # Máximo de 10 para elementos armazenados e 80 para potência (2000 kW)
@@ -142,9 +142,9 @@ class MyProblem(ElementwiseProblem):
 
 
     def _evaluate(self, x, out, *args, **kwargs):
-        Np_b = int(round(x[0]))                         # Número de baterias em paralelo
-        Np_uc = int(round(x[1]))                        # Número de supercapacitores em paralelo
-        Pth = step_pth * int(round(x[2]))                     # Variavel relativa a potencia
+        Np_b = int(round(x[0]))                                 # Número de baterias em paralelo
+        Np_uc = int(round(x[1]))                                # Número de supercapacitores em paralelo
+        Pth = step_pth * int(round(x[2]))                       # Variavel relativa a potencia
 
         # Cálculo do número total de componentes
         total_baterias = Np_b * Nm_b * Ns_b

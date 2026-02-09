@@ -185,9 +185,16 @@ class Simulation():
             
             # Atualiza supercapacitor
             i_uc, p_uc_reject_1 = self._uc.setCurrent(power_uc)
-            # sleep(1)
             SoC_uc, v_banco_uc, p_uc_reject_2, i_uc = self._uc.updateEnergy(i_uc, 1)
             p_uc_reject = p_uc_reject_1 + p_uc_reject_2
+
+            if self._uc_params["Np"] == 0:
+                p_bat_reject = p_bat_reject + p_uc_reject
+                p_uc_reject = 0
+
+            if self._batt_params["Np"] == 0:
+                p_uc_reject = p_uc_reject + p_bat_reject
+                p_bat_reject = 0
 
             p_reject = p_bat_reject + p_uc_reject
             

@@ -39,7 +39,7 @@ class Uc():
         :param float C_rate: Taxa C máxima permitida (opcional)
         :raises ValueError: Se os parâmetros forem inválidos
         """
-        if any(x <= 0 for x in [C, Ns, Np, Nm, Vnom]):
+        if any(x <= 0 for x in [C, Ns, Nm, Vnom]):
             raise ValueError("Todos os parâmetros devem ser positivos")
         
         if not 0 <= SoC <= 100:
@@ -60,8 +60,10 @@ class Uc():
 
         
         self._stored_energy = self._total_energy*(self._SoC/100)
-
-        self._v_banco = sqrt((2 * self._stored_energy) / self._C_eq)
+        if self._Np == 0:
+            self._v_banco = 0
+        else:
+            self._v_banco = sqrt((2 * self._stored_energy) / self._C_eq)
         if C_rate is not None:
             self._C_rate = C_rate
 
@@ -106,13 +108,15 @@ class Uc():
         :return float i_sat: Corrente (A)
         :return float p_reject: Potência rejeitada (kW)
         """
-        # print(f"Power_uc : {power}")                                  # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
-        i = power / self._v_banco
-        i_max = self._C_rate * self._Cap_uc * self._Np              # Corrente máxima usando taxa C
-        i_sat = np.clip(i, -i_max, i_max)                           # Limita corrente em ambas direções
-        i_reject = i - i_sat                                        # Calcula corrente rejeitada
-        p_reject = (i_reject * self._v_banco) / 1000                # Calcula potência rejeitada
-        # print(f'Corrent uc: {i_sat}')                             # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
+        if self._Np == 0:                                               # Caso não haja banco de supercapacitores (Np == 0)
+            i_sat = 0                                                   # Corrente saturada é zerada
+            p_reject = power / 1000                                     # Rejeita toda a potência
+        else:                                                           # Caso haja banco de supercapacitores
+            i = power / self._v_banco                                   # Calculo da corrente inicial, sem limitação
+            i_max = self._C_rate * self._Cap_uc * self._Np              # Corrente máxima usando taxa C
+            i_sat = np.clip(i, -i_max, i_max)                           # Limita corrente em ambas direções
+            i_reject = i - i_sat                                        # Calcula corrente rejeitada
+            p_reject = (i_reject * self._v_banco) / 1000                # Calcula potência rejeitada
         return i_sat, p_reject
 
 
@@ -133,54 +137,30 @@ class Uc():
         :return float p_reject: Potência rejeitada (kW)
         :return float i_uc: Verdadeira corrente do banco (A)
         """
-        # Calcula variação de energia (P = V*I)
-        # print(f'Tensao : {self._v_banco}V    ;   Corrente: {current}A')   # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
-        energy_variation = -1 * self._v_banco * current * dt
-        # print(f'energy_variation: {energy_variation}')                    # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
-        # print(f'DEBUG: energy_variation = {energy_variation}')
-        
-        # Calcula nova energia
-        # print(f'DEBUG: self._stored_energy = {self._stored_energy}')
-        # print(f'DEBUG: total_energy = {self._total_energy}')
-        new_energy = self._stored_energy + energy_variation
-        # print(f'new_energy: {new_energy}')                                # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
-        # print(f'DEBUG: new_energy = {new_energy}')
-        
-        # Limita energia baseado no SoC
-        max_energy = self._total_energy * (self._SoC_max/100)
-        # print(f'DEBUG: max_energy = {max_energy}')
-        min_energy = self._total_energy * (self._SoC_min/100)
-        # print(f'DEBUG: min_energy = {min_energy}')
-        clip_energy = np.clip(new_energy, min_energy, max_energy)
-        # print(f'clip_energy: {clip_energy}')                             # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
-        # print(f'DEBUG: clip_energy = {clip_energy}')
-        # print(f'stored_energy: {self._stored_energy}')                    # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
-     
-        
-        p_reject = -1*((new_energy - clip_energy) / dt) / 1000         # Potência rejeitada (kW)
-        # print(f'p_reject: {p_reject}')                                    # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
-        i_uc = -1 * ((clip_energy - self._stored_energy) / dt) / self._v_banco
-        # print(f"Nova corrente: {i_uc}")                                   # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
-        # i_reject = ((clip_energy - new_energy) / dt) / self._v_banco
-        # i_uc = current - i_reject
-        # print(f'DEBUG: p_reject = {p_reject}')
-
-        # print(f'DEBUG: i_reject = { i_reject}')
-        # Preciso recalcular a corrente para considerar a potência rejeitada
-
-        
-        # Atualiza estados
-        self._stored_energy = clip_energy
-        self._SoC = (self._stored_energy / self._total_energy) * 100
-        # print(f"Novo SoC: {self._SoC}")                                   # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
-        # print(f'DEBUG: self._SoC = {self._SoC}')
-        self._v_banco = self.energy2voltage(clip_energy, self._SoC)
-        # print(f'Nova tnesão: {self._v_banco}')                                # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
-        # print(f'DEBUG: self._v_banco = {self._v_banco}')
-
-        # print("-------------------------------------------------------------")    # Conferencia 04/02/2026 ; funcionamento geral antes de colocar no documento
-        # sleep(1)
-        
+        if self._Np == 0:
+            self._SoC = 0
+            self._v_banco = 0
+            p_reject = 0
+            i_uc = 0
+        else:
+            # Calcula variação de energia (P = V*I)
+            energy_variation = -1 * self._v_banco * current * dt
+            
+            # Calcula nova energia
+            new_energy = self._stored_energy + energy_variation
+            
+            # Limita energia baseado no SoC
+            max_energy = self._total_energy * (self._SoC_max/100)
+            min_energy = self._total_energy * (self._SoC_min/100)
+            clip_energy = np.clip(new_energy, min_energy, max_energy)     
+            
+            p_reject = -1*((new_energy - clip_energy) / dt) / 1000         # Potência rejeitada (kW)
+            i_uc = -1 * ((clip_energy - self._stored_energy) / dt) / self._v_banco
+            
+            # Atualiza estados
+            self._stored_energy = clip_energy
+            self._SoC = (self._stored_energy / self._total_energy) * 100
+            self._v_banco = self.energy2voltage(clip_energy, self._SoC)
         return self._SoC, self._v_banco, p_reject, i_uc
 
     def setC_rate(self, C_rate: float) -> None:

@@ -35,7 +35,7 @@ class Batt():
         :param float DoD: Depth of Discharge desejado (opcional, 0.0 a 1.0)
         :raises ValueError: Se os parâmetros forem inválidos
         """
-        if any(x <= 0 for x in [C, Ns, Np, Nm, Vnom]):
+        if any(x <= 0 for x in [C, Ns, Nm, Vnom]):
             raise ValueError("Todos os parâmetros devem ser positivos")
         
         if not 0 <= SoC <= 100:
@@ -90,10 +90,14 @@ class Batt():
         :return float i_sat: Corrente por célula (A)
         :return float p_reject: Potência rejeitada (kW)
         """
-        i = power / self._v_banco
-        i_sat = np.clip(i, -self._C_rate * self._Np * self._C, self._C_rate * self._Np * self._C)       # Limita corrente usando taxa C
-        i_reject = i - i_sat                                                                            # Calcula corrente rejeitada
-        p_reject = (i_reject * self._v_banco)/1000                                                      # Calcula potência rejeitada
+        if self._Np == 0:
+            i_sat = 0
+            p_reject = power / 1000
+        else:
+            i = power / self._v_banco
+            i_sat = np.clip(i, -self._C_rate * self._Np * self._C, self._C_rate * self._Np * self._C)       # Limita corrente usando taxa C
+            i_reject = i - i_sat                                                                            # Calcula corrente rejeitada
+            p_reject = (i_reject * self._v_banco)/1000                                                      # Calcula potência rejeitada
         return i_sat, p_reject
 
     def getTotalEnergy(self) -> float:
@@ -114,25 +118,30 @@ class Batt():
         :return float p_reject: Potência rejeitada (kW)
         """
         # Calcula variação de energia
-        charge = -1 * current * dt / 3600  # Converte para horas
-        energy_variation = self._v_banco * charge
-        
-        # Calcula nova energia
-        new_energy = self._SoC_Energy + energy_variation
-        
-        # Limita energia entre mínimo e máximo
-        clip_energy = np.clip(
-            new_energy, 
-            (self._min_SoC/100) * self._total_energy,
-            (self._max_SoC/100) * self._total_energy
-        )
-        p_reject = ((new_energy - clip_energy) / dt) / 1000             # Potência rejeitada (kW)
+        if self._Np == 0:
+            self.SoC = 0
+            self._v_banco = 0
+            p_reject = 0
+        else:
+            charge = -1 * current * dt / 3600  # Converte para horas
+            energy_variation = self._v_banco * charge
+            
+            # Calcula nova energia
+            new_energy = self._SoC_Energy + energy_variation
+            
+            # Limita energia entre mínimo e máximo
+            clip_energy = np.clip(
+                new_energy, 
+                (self._min_SoC/100) * self._total_energy,
+                (self._max_SoC/100) * self._total_energy
+            )
+            p_reject = ((new_energy - clip_energy) / dt) / 1000             # Potência rejeitada (kW)
 
 
-        
-        self._SoC_Energy = clip_energy
-        self._SoC = self.Energy2SoC(clip_energy)
-        self._v_banco = self._Ns * self._Nm * self.LUT(self._SoC)
+            
+            self._SoC_Energy = clip_energy
+            self._SoC = self.Energy2SoC(clip_energy)
+            self._v_banco = self._Ns * self._Nm * self.LUT(self._SoC)
         
         return self._SoC, self._v_banco, p_reject
 
