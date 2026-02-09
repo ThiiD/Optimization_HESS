@@ -174,7 +174,7 @@ class Batt():
             df = pd.read_csv("data\\LUT_saude_batt.csv", sep=";")
             indice_proximo = (df['Ciclos'] - (cycles_used % maximum_cycles)).abs().idxmin()
             health = df.loc[indice_proximo, 'Saude']
-            print(f"Indice: {indice_proximo}    ;   Ciclos: {cycles_used}   ;   Saúde da bateria: {health}%")
+            # print(f"Indice: {indice_proximo}    ;   Ciclos: {cycles_used}   ;   Saúde da bateria: {health}%")
             return float(health)
         except Exception as e:
             print("Erro ao ler LUT de saúde da bateria:", e)

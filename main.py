@@ -53,6 +53,18 @@ taxa_desconto_anual = 0.10                                                  # Ta
 
 taxa_desconto_mensal = (1 + taxa_desconto_anual) ** (1/12) - 1              # TMA mensal calculada a partir da TMA anual
 
+# Definições relativas a otmização
+step_pth = 25                                                       # Step entre as potências de limiares simuladas
+potencia_de_limiar_max = 2000                                       # Potência de limiar máxima
+max_pth = round(potencia_de_limiar_max / step_pth)                  # Número discreto máximo de passos para a potência de limiar
+min_pth = 0                                                         # Número discreto mínimo de passos para a potência de limiar
+
+min_uc = 1                                                          # Número minimo de supercapacitores
+max_uc = 10                                                         # Número máximo de supercapacitores
+
+min_bat = 1                                                         # Número mínimo de baterias
+max_bat = 10                                                        # Número máximo de baterias
+
 # Definição dos parametros do problema
 cot_dolar = 5.57            # 22/07/2025
 Pb_usd = 28.00              # Preço da bateria em dolares (Fonte: data_sources.xlsx)
@@ -114,12 +126,12 @@ T_xuc = 8                   # Multiplicador da capacidade do supercapacitor
 class MyProblem(ElementwiseProblem):
 
     def __init__(self):
-        super().__init__(n_var=3,  # Np_b, Np_uc e Pth
-                         n_obj=1,   # VPL e Volume
-                         n_ieq_constr=0,  # Sem restrições
-                         xl=np.array([1, 1, 500]),  # Mínimo de 1 para cada elemento armazenador e 500 para potencia (500 kW)
-                         xu=np.array([10, 10, 2000]),  # Máximo de 10 para elementos armazenados e 2000 para potência (2000 kW)
-                         type_var=np.int64)  # Especificando que as variáveis são inteiros
+        super().__init__(n_var=3,                                           # Np_b, Np_uc e Pth
+                         n_obj=1,                                           # VPL e Volume
+                         n_ieq_constr=0,                                    # Sem restrições
+                         xl=np.array([min_bat, min_uc, min_pth]),           # Mínimo de 1 para cada elemento armazenador e 0 para potencia (0 kW)
+                         xu=np.array([max_bat, max_uc, max_pth]),           # Máximo de 10 para elementos armazenados e 80 para potência (2000 kW)
+                         type_var=np.int64)                                 # Especificando que as variáveis são inteiros
         self.simulation_cache = {}
 
     def setData(self, data: str, sheet: str):
@@ -130,9 +142,9 @@ class MyProblem(ElementwiseProblem):
 
 
     def _evaluate(self, x, out, *args, **kwargs):
-        Np_b = int(round(x[0]))     # Número de baterias em paralelo
-        Np_uc = int(round(x[1]))    # Número de supercapacitores em paralelo
-        Pth = x[2]                  # Variavel relativa a potencia
+        Np_b = int(round(x[0]))                         # Número de baterias em paralelo
+        Np_uc = int(round(x[1]))                        # Número de supercapacitores em paralelo
+        Pth = step_pth * int(round(x[2]))                     # Variavel relativa a potencia
 
         # Cálculo do número total de componentes
         total_baterias = Np_b * Nm_b * Ns_b
@@ -209,13 +221,7 @@ class MyProblem(ElementwiseProblem):
                 balanco_mes += economia_mensal
 
                 # Verifica substituição da bateria
-                # try:
-                numero_ciclos_batt_total +=  round(((max(sim._SoC) - min(sim._SoC)) / 100) * self.ciclos_por_mes) #round(((max_SoC - min_SoC) / 100) * self.ciclos_por_mes)        # Calcula o numero de ciclos totais já realizados.
-                # except Exception as e:
-                #     numero_ciclos_batt_total += round(((max_SoC - min_SoC) / 100) * self.ciclos_por_mes)  
-                #numero_ciclos_batt += self.ciclos_por_mes                                                              # Considera cada ciclo de operação um ciclo completo pra bateria
-                print(f"Soc min: {min(sim._SoC)}    ;   Soc max: {max(sim._SoC)}    ;   Numero de ciclos totais da bateria: {numero_ciclos_batt_total}")
-                print(f"Verificando substituição da bateria: {(numero_ciclos_batt_total / ciclos_bateria_vida) - 1} > {sum(troca_bat)}")
+                numero_ciclos_batt_total +=  round(((max(sim._SoC) - min(sim._SoC)) / 100) * self.ciclos_por_mes)   # Calcula o numero de Full Equivalent Cycles (FEC) já realizados.
                 if (numero_ciclos_batt_total / ciclos_bateria_vida) - 1 > sum(troca_bat):                           # Necessário realizar a troca da bateria
                     saude_bat_mensal = sim._batt.batteryHealth(numero_ciclos_batt_total % ciclos_bateria_vida, ciclos_bateria_vida)
                     saude_bat.append(saude_bat_mensal)
@@ -482,12 +488,12 @@ for i in range(min(10, len(X))):  # Mostrar as 10 melhores soluções
     try:
         print(f"Número de baterias em paralelo: {int(round(X[i,0]))}")
         print(f"Número de supercapacitores em paralelo: {int(round(X[i,1]))}")
-        print(f"Valor limiar de potência: {int(round(X[i,2]))}")
+        print(f"Valor limiar de potência: {step_pth * int(round(X[i,2]))}")
         print(f"VPL (Valor Presente Líquido): R$ {(-F[i,0]):,.2f}")
     except:
         print(f"Número de baterias em paralelo: {int(round(X[0]))}")
         print(f"Número de supercapacitores em paralelo: {int(round(X[1]))}")
-        print(f"Valor limiar de potência: {int(round(X[2]))}")
+        print(f"Valor limiar de potência: {step_pth * int(round(X[2]))}")
         print(f"VPL (Valor Presente Líquido): R$ {(-F[0]):,.2f}")
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -497,12 +503,12 @@ try:
     idx_best = np.argmin(F[:, 0])  # Menor valor negativo de F => maior VPL
     best_Np_b = int(round(X[idx_best, 0]))
     best_Np_uc = int(round(X[idx_best, 1]))
-    best_Pth = X[idx_best, 2]
+    best_Pth = step_pth * int(round(X[idx_best, 2]))
 except:
     idx_best = np.argmin(F[0])  # Menor valor negativo de F => maior VPL
     best_Np_b = int(round(X[0]))
     best_Np_uc = int(round(X[1]))
-    best_Pth = X[2]
+    best_Pth = step_pth * int(round(X[2]))
 
 
 # Rodar a simulação para a melhor solução
