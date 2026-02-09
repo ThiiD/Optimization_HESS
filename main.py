@@ -76,8 +76,8 @@ Puc = Puc_usd * cot_dolar   # Preço do supercapacitor em reais
 Vb = 0.596                  # Volume da bateria em L (Fonte: data_sources.xlsx)
 Vuc = 0.496                 # Volume do supercapacitor em L (Fonte: data_sources.xlsx)
 
-Wb = 1.060                  # Peso da bateria em kg (Fonte: data_sources.xlsx)
-Wuc = 0.460                 # Peso do supercapacitor em kg (Fonte: data_sources.xlsx)
+Wb = 1.050                  # Peso da bateria em kg (Fonte: data_sources.xlsx)             (VALIDADO 09/02/2026 https://www.ecopowerbattery.com/products/n-6c-40ah-lifepo4.html)
+Wuc = 0.460                 # Peso do supercapacitor em kg (Fonte: data_sources.xlsx)      (VALIDADO 09/02/2026 https://maxwell.com/wp-content/uploads/2022/11/3003483-EN.0_DS_3V-3000F-Cell-BCAP3000-P300.pdf)
 
 Ns_b = 16                   # Número de baterias em serie
 Nm_b = 24                   # Número de módulos de baterias
@@ -127,7 +127,7 @@ class MyProblem(ElementwiseProblem):
 
     def __init__(self):
         super().__init__(n_var=3,                                           # Np_b, Np_uc e Pth
-                         n_obj=1,                                           # VPL e Peso
+                         n_obj=2,                                           # VPL e Peso
                          n_ieq_constr=0,                                    # Sem restrições
                          xl=np.array([min_bat, min_uc, min_pth]),           # Mínimo de 1 para cada elemento armazenador e 0 para potencia (0 kW)
                          xu=np.array([max_bat, max_uc, max_pth]),           # Máximo de 10 para elementos armazenados e 80 para potência (2000 kW)
@@ -149,6 +149,9 @@ class MyProblem(ElementwiseProblem):
         # Cálculo do número total de componentes
         total_baterias = Np_b * Nm_b * Ns_b
         total_supercaps = Np_uc * Nm_uc * Ns_uc
+
+        # Cálculo do peso total
+        peso_total = (Wb * total_baterias) + (Wuc * total_supercaps)
 
         # Cálculo do custo inicial (investimento)
         custo_inicial = (total_baterias * Pb) + (total_supercaps * Puc) + (total_elepot * preco_razao_elepot)
@@ -253,10 +256,11 @@ class MyProblem(ElementwiseProblem):
             vpl += fc / ((1 + taxa_desconto_mensal) ** i)
 
         print(f"VPL (Np_b: {Np_b}, Np_uc: {Np_uc}, Pth: {Pth}): {vpl}")
+        print(f'Peso total do sistema híbrido: {peso_total} kg')
         print(f'---------------------------------------------------------')
 
         # Como a otimização é de minimização, usamos o valor negativo do VPL
-        out["F"] = [-vpl]
+        out["F"] = [-vpl, -peso_total]
         out["G"] = []
         
         # Armazenar o fluxo de caixa se for a melhor solução até agora
@@ -490,11 +494,13 @@ for i in range(min(10, len(X))):  # Mostrar as 10 melhores soluções
         print(f"Número de supercapacitores em paralelo: {int(round(X[i,1]))}")
         print(f"Valor limiar de potência: {step_pth * int(round(X[i,2]))}")
         print(f"VPL (Valor Presente Líquido): R$ {(-F[i,0]):,.2f}")
+        print(f"Peso total do sistema: {(-F[i,1]):,.2f} kg")
     except:
         print(f"Número de baterias em paralelo: {int(round(X[0]))}")
         print(f"Número de supercapacitores em paralelo: {int(round(X[1]))}")
         print(f"Valor limiar de potência: {step_pth * int(round(X[2]))}")
         print(f"VPL (Valor Presente Líquido): R$ {(-F[0]):,.2f}")
+        print(f"Peso total do sistema: R$ {(-F[1]):,.2f} kg")
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------- Seleção da melhor solução ------------------------------------------------------------------------------------
@@ -797,11 +803,14 @@ plt.show(block=False)
 #         capacidade_supercap[i] = horas
 # print(capacidade_supercap)
 plt.figure(figsize=(fig_width_cm, fig_height_cm/1.5))
-plt.step(np.arange(horizonte_analise_meses), np.array(problem.saude_uc) * 100, color='tab:blue', where="post")
+if best_Np_uc == 0:
+    plt.step(np.arange(horizonte_analise_meses), np.zeros(horizonte_analise_meses) * 100, color='tab:blue', where="post")
+else:
+    plt.step(np.arange(horizonte_analise_meses), np.array(problem.saude_uc) * 100, color='tab:blue', where="post")
+    plt.ylim(99.8, 100.2)
 plt.title('Degradação do Supercapacitor ao Longo do Tempo')
 plt.xlabel('Meses')
 plt.ylabel(r'Capacidade Residual [\%]')
-plt.ylim(99.8, 100.2)
 plt.xlim(0, horizonte_analise_meses)
 plt.grid()
 plt.tight_layout()
