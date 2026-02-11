@@ -260,7 +260,7 @@ class MyProblem(ElementwiseProblem):
         print(f'---------------------------------------------------------')
 
         # Como a otimização é de minimização, usamos o valor negativo do VPL
-        out["F"] = [-vpl, -peso_total]
+        out["F"] = [-vpl, peso_total]
         out["G"] = []
         
         # Armazenar o fluxo de caixa se for a melhor solução até agora
@@ -503,6 +503,20 @@ for i in range(min(10, len(X))):  # Mostrar as 10 melhores soluções
         print(f"Peso total do sistema: R$ {(-F[1]):,.2f} kg")
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------- Visualização do espaço de objetivos  ----------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------------------------------------
+
+plt.figure(figsize=(fig_width_cm, fig_height_cm))
+plt.scatter(-F[:, 0], F[:, 1], s=30, facecolors='r', edgecolors='r', zorder=3)
+plt.title('Espaço de Objetivos')
+plt.xlabel('VPL (Valor Presente Líquido)')
+plt.ylabel('Peso total do sistema [kg]')
+plt.grid(zorder=1)
+plt.tight_layout()
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_02_objective_space.pdf", bbox_inches='tight')
+plt.show(block=False)
+
+# ----------------------------------------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------- Seleção da melhor solução ------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 try:
@@ -569,7 +583,7 @@ axs[2].legend(loc="upper right")
 
 
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_02_power_current_voltage.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_03_power_current_voltage.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -669,7 +683,7 @@ axs[2, 1].set_xlim([0, time[-1]])
 # axs[2].grid()
 
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_03_power_current_voltage_subplots.pdf", bbox_inches='tight')    
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_04_power_current_voltage_subplots.pdf", bbox_inches='tight')    
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -714,7 +728,7 @@ axs[2, 1].grid()
 
 plt.suptitle('SoC, Tensão e Corrente: Bateria (esq.) x Supercapacitor (dir.)')
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_04_soc_voltage_current.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_05_soc_voltage_current.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 
@@ -741,7 +755,7 @@ plt.legend(loc='upper right')
 plt.grid()
 plt.xlim([0, time[-1]])
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_05_power_comparison.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_06_power_comparison.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -758,7 +772,7 @@ if hasattr(problem, 'melhor_fluxo_caixa'):
     # plt.xlabel('Meses')
     # plt.ylabel('Fluxo de Caixa (USD)')
     # plt.show(block=True)
-    plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_06_cashflow.pdf", bbox_inches='tight')
+    plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_07_cashflow.pdf", bbox_inches='tight')
 else:
     print("Aviso: Fluxo de caixa da melhor solução não encontrado.")
 
@@ -787,7 +801,7 @@ plt.ylim(75, 105)
 plt.xlim(0, horizonte_analise_meses)
 plt.grid()
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_07_battery_degradation.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_08_battery_degradation.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -814,7 +828,7 @@ plt.ylabel(r'Capacidade Residual [\%]')
 plt.xlim(0, horizonte_analise_meses)
 plt.grid()
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_08_supercapacitor_degradation.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_09_supercapacitor_degradation.pdf", bbox_inches='tight')
 plt.show(block=True)
 
 # # ----------------------------------------------------------------------------------------------------------------------------------------------------
