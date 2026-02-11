@@ -7,6 +7,7 @@ import pandas as pd
 from pymoo.core.problem import ElementwiseProblem
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.core.problem import ElementwiseProblem
+from pymoo.decomposition.asf import ASF
 from pymoo.config import Config
 Config.warnings['not_compiled'] = False
 
@@ -494,7 +495,7 @@ for i in range(min(10, len(X))):  # Mostrar as 10 melhores soluções
         print(f"Número de supercapacitores em paralelo: {int(round(X[i,1]))}")
         print(f"Valor limiar de potência: {step_pth * int(round(X[i,2]))}")
         print(f"VPL (Valor Presente Líquido): R$ {(-F[i,0]):,.2f}")
-        print(f"Peso total do sistema: {(-F[i,1]):,.2f} kg")
+        print(f"Peso total do sistema: {(F[i,1]):,.2f} kg")
     except:
         print(f"Número de baterias em paralelo: {int(round(X[0]))}")
         print(f"Número de supercapacitores em paralelo: {int(round(X[1]))}")
@@ -503,7 +504,7 @@ for i in range(min(10, len(X))):  # Mostrar as 10 melhores soluções
         print(f"Peso total do sistema: R$ {(-F[1]):,.2f} kg")
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
-# -------------------------------------------- Visualização do espaço de objetivos  ----------------------------------------------------------------
+# ---------------------------------------------- Visualização do espaço de objetivos  ----------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
 plt.figure(figsize=(fig_width_cm, fig_height_cm))
@@ -516,20 +517,89 @@ plt.tight_layout()
 plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_02_objective_space.pdf", bbox_inches='tight')
 plt.show(block=False)
 
+
+# ----------------------------------------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------- Seleção da melhor solução --------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------------------------------------
+
+fl = F.min(axis=0)
+fu = F.max(axis=0)
+print(f"Scale f1: [{fl[0]}, {fu[0]}]")
+print(f"Scale f2: [{fl[1]}, {fu[1]}]")
+
+approx_ideal = F.min(axis=0)
+# approx_ideal[0] = -approx_ideal[0]
+# approx_ideal[1] = -approx_ideal[1]
+approx_nadir = F.max(axis=0)
+# approx_nadir
+
+plt.figure(figsize=(fig_width_cm, fig_height_cm))
+plt.scatter(-F[:, 0], F[:, 1], s=30, facecolors='none', edgecolors='blue')
+plt.scatter(-1*approx_ideal[0], approx_ideal[1], facecolors='none', edgecolors='red', marker="*", s=100, label="Ponto Ideal")
+plt.scatter(-1*approx_nadir[0], approx_nadir[1], facecolors='none', edgecolors='black', marker="p", s=100, label="Nadir")
+plt.title("Espaço de Objetivos - Nadir e Ideal")
+plt.xlabel('VPL (Valor Presente Líquido)')
+plt.ylabel('Peso total do sistema [kg]')
+plt.grid()
+plt.legend()
+plt.tight_layout()
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_03_ideal_e_nadir.pdf", bbox_inches='tight')
+plt.show(block = False)
+
+nF = (F - approx_ideal) / (approx_nadir - approx_ideal)
+
+fl = nF.min(axis=0)
+fu = nF.max(axis=0)
+print(f"Scale f1: [{fl[0]}, {fu[0]}]")
+print(f"Scale f2: [{fl[1]}, {fu[1]}]")
+
+plt.figure(figsize=(fig_width_cm, fig_height_cm))
+plt.scatter(-1*nF[:, 0], nF[:, 1], s=30, facecolors='none', edgecolors='blue')
+plt.title("Espaço de Objetivos - Normalizado")
+plt.xlabel('VPL (Valor Presente Líquido)')
+plt.ylabel('Peso total do sistema [kg]')
+plt.grid()
+plt.tight_layout()
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_04_objective_space_normalizado.pdf", bbox_inches='tight')
+plt.show(block = False)
+
+weights = np.array([0.8, 0.2])
+
+decomp = ASF()
+
+idx_best = decomp.do(nF, 1/weights).argmin()
+
+print("Resposta ideal (ASF): \ni = %s\nF = %s" % (i, F[idx_best]))
+print(f"Resposta ideal ASF: i = {idx_best}, \n X = {X[idx_best]} \n F = {step_pth * F[idx_best]}")
+
+
+plt.figure(figsize=(fig_width_cm, fig_height_cm))
+plt.scatter(-F[:, 0], F[:, 1], s=30, facecolors='none', edgecolors='blue', label = "Fronteira de Pareto")
+plt.scatter(-F[idx_best, 0], F[idx_best, 1], marker="x", color="red", s=200, label = "Resposta Ótima")
+plt.title("Espaço de Objetivos - Resposta Ótima")
+plt.xlabel('VPL (Valor Presente Líquido)')
+plt.ylabel('Peso total do sistema [kg]')
+plt.legend()
+plt.grid()
+plt.tight_layout()
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_05_objective_space_resposta_otima.pdf", bbox_inches='tight')
+plt.show(block = False)
+
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------- Seleção da melhor solução ------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 try:
-    idx_best = np.argmin(F[:, 0])  # Menor valor negativo de F => maior VPL
     best_Np_b = int(round(X[idx_best, 0]))
     best_Np_uc = int(round(X[idx_best, 1]))
     best_Pth = step_pth * int(round(X[idx_best, 2]))
 except:
-    idx_best = np.argmin(F[0])  # Menor valor negativo de F => maior VPL
     best_Np_b = int(round(X[0]))
     best_Np_uc = int(round(X[1]))
     best_Pth = step_pth * int(round(X[2]))
 
+print(f"""Solução Ótima: Np_b: {best_Np_b}
+                         Np_uc: {best_Np_uc}
+                         Pth: {best_Pth}""")
 
 # Rodar a simulação para a melhor solução
 sim = Simulation()
@@ -583,7 +653,7 @@ axs[2].legend(loc="upper right")
 
 
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_03_power_current_voltage.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_06_power_current_voltage.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -683,7 +753,7 @@ axs[2, 1].set_xlim([0, time[-1]])
 # axs[2].grid()
 
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_04_power_current_voltage_subplots.pdf", bbox_inches='tight')    
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_07_power_current_voltage_subplots.pdf", bbox_inches='tight')    
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -728,7 +798,7 @@ axs[2, 1].grid()
 
 plt.suptitle('SoC, Tensão e Corrente: Bateria (esq.) x Supercapacitor (dir.)')
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_05_soc_voltage_current.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_08_soc_voltage_current.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 
@@ -755,7 +825,7 @@ plt.legend(loc='upper right')
 plt.grid()
 plt.xlim([0, time[-1]])
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_06_power_comparison.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_09_power_comparison.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -772,7 +842,7 @@ if hasattr(problem, 'melhor_fluxo_caixa'):
     # plt.xlabel('Meses')
     # plt.ylabel('Fluxo de Caixa (USD)')
     # plt.show(block=True)
-    plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_07_cashflow.pdf", bbox_inches='tight')
+    plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_10_cashflow.pdf", bbox_inches='tight')
 else:
     print("Aviso: Fluxo de caixa da melhor solução não encontrado.")
 
@@ -801,7 +871,7 @@ plt.ylim(75, 105)
 plt.xlim(0, horizonte_analise_meses)
 plt.grid()
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_08_battery_degradation.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_11_battery_degradation.pdf", bbox_inches='tight')
 plt.show(block=False)
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -828,7 +898,7 @@ plt.ylabel(r'Capacidade Residual [\%]')
 plt.xlim(0, horizonte_analise_meses)
 plt.grid()
 plt.tight_layout()
-plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_09_supercapacitor_degradation.pdf", bbox_inches='tight')
+plt.savefig(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_12_supercapacitor_degradation.pdf", bbox_inches='tight')
 plt.show(block=True)
 
 # # ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -883,3 +953,18 @@ plt.show(block=True)
 # plt.show(block=True)
 
 
+# Saída de dados - Excel
+data_columns = ["Np_b", "Np_uc", "Pth", "Retorno", "Peso"]
+
+X_round = np.round(X)
+
+results = np.concatenate((X_round, F), axis = 1)
+print(results)
+
+results_unique = np.unique(results, axis = 0)
+
+df = pd.DataFrame(data = results_unique, columns=data_columns)
+df["Pth"] = step_pth * df["Pth"]
+df["Retorno"] = -1*df["Retorno"]
+df.to_csv(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_solucoes_nao_dominadas.csv", sep=";")
+print(df)
