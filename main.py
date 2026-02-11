@@ -5,8 +5,9 @@ from time import sleep
 import pandas as pd
 
 from pymoo.core.problem import ElementwiseProblem
+from pymoo.util.display.output import Output
+from pymoo.util.display.column import Column
 from pymoo.algorithms.moo.nsga2 import NSGA2
-from pymoo.core.problem import ElementwiseProblem
 from pymoo.decomposition.asf import ASF
 from pymoo.config import Config
 Config.warnings['not_compiled'] = False
@@ -123,6 +124,61 @@ T_xuc = 8                   # Multiplicador da capacidade do supercapacitor
 #   E_rej = (Np_b * Nm_b * Ns_b) * Pb * (1 - DoD_bat) + (Np_uc * Nm_uc * Ns_uc) * Puc * (1 - DoD_uc)
 #   DoD_bat = (Np_b * Nm_b * Ns_b) * Pb / ((Np_b * Nm_b * Ns_b) * Pb + (Np_uc * Nm_uc * Ns_uc) * Puc)
 
+class MyOutput(Output):
+
+    def __init__(self, optimization_output):
+        super().__init__()
+        self.data = []
+        self.columns_def = ["n_gen", "n_evals", "n_nds", "eps"]
+        self.last_ideal = None
+        self.columns = [
+            Column("n_gen", width=13),                                  # Número de gerações até determinado ponto
+            Column("n_evals", width=13),                                # Número de funções avaliadas até o momento
+            Column("n_nds", width=13),                                  # Número de soluções de pareto
+            Column("eps", width = 13)                                   # Mudança do indicador (ideal, nadir, f) ao longo das últimas gerações
+        ]     
+        self.optimization_output = optimization_output
+
+    def update(self, algorithm):
+        super().update(algorithm)
+
+        # ideal point atual
+        ideal = algorithm.opt.get("F").min(axis=0)
+
+        # calcula eps
+        if self.last_ideal is None:
+            eps = 0.0
+        else:
+            eps = float(np.linalg.norm(ideal - self.last_ideal))
+
+        # atualiza memória
+        self.last_ideal = ideal
+
+        # número de soluções não dominadas
+        n_nds = len(algorithm.opt.get("F"))
+
+        # monta o dicionário para o display
+        row = {
+            "n_gen": algorithm.n_gen,
+            "n_evals": algorithm.evaluator.n_eval,
+            "n_nds": n_nds,
+            "eps": eps
+        }
+
+        # salva no histórico
+        self.data.append(row)
+
+        # 🔥 ESSENCIAL: envia os valores para o terminal
+        self.notify(row)
+
+
+    def finalize(self):
+        # 2. Write to Excel upon completion
+        print(f"Simulação: {self.data}")
+        df = pd.DataFrame(self.data)
+        df.to_excel(self.optimization_output, index=False)
+
+
 
 class MyProblem(ElementwiseProblem):
 
@@ -134,6 +190,7 @@ class MyProblem(ElementwiseProblem):
                          xu=np.array([max_bat, max_uc, max_pth]),           # Máximo de 10 para elementos armazenados e 80 para potência (2000 kW)
                          type_var=np.int64)                                 # Especificando que as variáveis são inteiros
         self.simulation_cache = {}
+        self.output_cache = {}
 
     def setData(self, data: str, sheet: str):
         self._data = data
@@ -443,16 +500,20 @@ if DEBUG == 1:
                                   np.float64(340362.6297192742)]
 
 else:
+    outputDisplay = MyOutput(diretorio_figuras + "/" + f"{arquivo.split(".")[0]}_optimization_table.xlsx")
     res = minimize(problem,
             algorithm,
             termination,
             seed=1,
             save_history=True,
-            verbose=True)
+            verbose=True,
+            output=outputDisplay)
 
     # Após a otimização
     X = res.X
     F = res.F
+
+    outputDisplay.finalize()
 
 
 print(f'X: {X}')
