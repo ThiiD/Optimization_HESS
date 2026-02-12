@@ -14,7 +14,7 @@ import pandas as pd
 # ----------------------------------------------------------------------------------------------------------------------
 
 # Variações dos parametros:
-variacao = np.array([0.50, 0.75, 1.25, 1.50, 2])
+variacao = np.array([0.50, 2])
 
 # Parâmetros financeiros e operacionais
 preco_diesel = 6.00
@@ -90,13 +90,12 @@ Cap_uc = 280.0                                                      # Capacidade
 T_xuc = 8                                                           # Multiplicador da capacidade do supercapacitor
 vetor_T_xuc = variacao * T_xuc                                      # Vetor de sensibilidade da capacidade do supercapacitor
 
-problem = MyProblem()
 arquivo = "UMAX_18-10-24.xlsx"
 diretorio_figuras = "Figuras/" + arquivo.split(".")[0]
 os.makedirs(diretorio_figuras, exist_ok=True)
 data = "data/" + arquivo
 sheet = "Log"
-problem.setData(data, sheet)
+
 
 algorithm = NSGA2(
     pop_size=20,
@@ -135,6 +134,8 @@ sensibilidade_cache = {"Preco Diesel"           :   [],
 
 for preco_diesel in vetor_preco_diesel:
     for cot_dolar in vetor_cot_dolar:
+        problem = MyProblem()
+        problem.setData(data, sheet)
         Pb = Pb_usd * cot_dolar     # Preço da bateria em reais
         Puc = Puc_usd * cot_dolar   # Preço do supercapacitor em reais
 
@@ -183,6 +184,9 @@ for preco_diesel in vetor_preco_diesel:
         sensibilidade_cache["Np,uc"].append(best_Np_uc)
         sensibilidade_cache["Pth"].append(best_Pth)
         sensibilidade_cache["VPL"].append(VPL)
+
+        res.X = None
+        res.F = None
 
 
 
