@@ -5,8 +5,9 @@ from time import sleep
 import pandas as pd
 
 from pymoo.core.problem import ElementwiseProblem
+from pymoo.util.display.output import Output
+from pymoo.util.display.column import Column
 from pymoo.algorithms.moo.nsga2 import NSGA2
-from pymoo.core.problem import ElementwiseProblem
 from pymoo.config import Config
 Config.warnings['not_compiled'] = False
 
@@ -46,7 +47,7 @@ ciclos_bateria_vida = 5300  # ciclos até 80% da capacidade (Baseado no datashee
 horas_supercap_vida = 1000000  # horas até 80% da capacidade (Baseado no datasheet do supercapacitor)
 
 # Parâmetros financeiros para VPL
-horizonte_analise_meses = 12  # 10 anos
+horizonte_analise_meses = 60  # 5 anos
 
 # Taxa de desconto mensal (ex: 10% ao ano -> 0.10/12)
 taxa_desconto_anual = 0.10                                                  # Taxa minima de atratividade anual 
@@ -121,6 +122,60 @@ T_xuc = 8                   # Multiplicador da capacidade do supercapacitor
         
 #   E_rej = (Np_b * Nm_b * Ns_b) * Pb * (1 - DoD_bat) + (Np_uc * Nm_uc * Ns_uc) * Puc * (1 - DoD_uc)
 #   DoD_bat = (Np_b * Nm_b * Ns_b) * Pb / ((Np_b * Nm_b * Ns_b) * Pb + (Np_uc * Nm_uc * Ns_uc) * Puc)
+
+class MyOutput(Output):
+
+    def __init__(self, optimization_output):
+        super().__init__()
+        self.data = []
+        self.columns_def = ["n_gen", "n_evals", "n_nds", "eps"]
+        self.last_ideal = None
+        self.columns = [
+            Column("n_gen", width=13),                                  # Número de gerações até determinado ponto
+            Column("n_evals", width=13),                                # Número de funções avaliadas até o momento
+            Column("n_nds", width=13),                                  # Número de soluções de pareto
+            Column("eps", width = 13)                                   # Mudança do indicador (ideal, nadir, f) ao longo das últimas gerações
+        ]     
+        self.optimization_output = optimization_output
+
+    def update(self, algorithm):
+        super().update(algorithm)
+
+        # ideal point atual
+        ideal = algorithm.opt.get("F").min(axis=0)
+
+        # calcula eps
+        if self.last_ideal is None:
+            eps = 0.0
+        else:
+            eps = float(np.linalg.norm(ideal - self.last_ideal))
+
+        # atualiza memória
+        self.last_ideal = ideal
+
+        # número de soluções não dominadas
+        n_nds = len(algorithm.opt.get("F"))
+
+        # monta o dicionário para o display
+        row = {
+            "n_gen": algorithm.n_gen,
+            "n_evals": algorithm.evaluator.n_eval,
+            "n_nds": n_nds,
+            "eps": eps
+        }
+
+        # salva no histórico
+        self.data.append(row)
+
+        # 🔥 ESSENCIAL: envia os valores para o terminal
+        self.notify(row)
+
+
+    def finalize(self):
+        # 2. Write to Excel upon completion
+        print(f"Simulação: {self.data}")
+        df = pd.DataFrame(self.data)
+        df.to_csv(self.optimization_output, index=False, sep=";")
 
 
 class MyProblem(ElementwiseProblem):
@@ -273,7 +328,7 @@ class MyProblem(ElementwiseProblem):
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
 problem = MyProblem()
-arquivo = "CR-3112_28-09-24_AGGREGATED.xlsx"
+arquivo = "UMAX_18-10-24.xlsx"
 diretorio_figuras = "Figuras/" + arquivo.split(".")[0]
 os.makedirs(diretorio_figuras, exist_ok=True)
 data = "data/" + arquivo
@@ -438,12 +493,14 @@ if DEBUG == 1:
                                   np.float64(340362.6297192742)]
 
 else:
+    outputDisplay = MyOutput(diretorio_figuras + "/" + f"{arquivo.split(".")[0]}_optimization_table.csv")
     res = minimize(problem,
             algorithm,
             termination,
             seed=1,
             save_history=True,
-            verbose=True)
+            verbose=True,
+            output=outputDisplay)
 
     # Após a otimização
     X = res.X
@@ -801,7 +858,7 @@ plt.step(np.arange(horizonte_analise_meses), np.array(problem.saude_uc) * 100, c
 plt.title('Degradação do Supercapacitor ao Longo do Tempo')
 plt.xlabel('Meses')
 plt.ylabel(r'Capacidade Residual [\%]')
-plt.ylim(99.8, 100.2)
+plt.ylim(99, 101)
 plt.xlim(0, horizonte_analise_meses)
 plt.grid()
 plt.tight_layout()

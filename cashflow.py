@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 class CashFlow:
+    fig_width_cm = 24/2.4
+    fig_height_cm = 18/2.4
     def __init__(self, fluxo_caixa):
         """
         Inicializa a classe CashFlow com um array de fluxo de caixa
@@ -17,7 +19,7 @@ class CashFlow:
         """
         meses = np.arange(len(self.fluxo_caixa))
         
-        plt.figure(figsize=(12, 6))
+        plt.figure(figsize=(2*self.fig_width_cm, 1.5*self.fig_height_cm))
         
         # Barras para valores positivos (receitas) e negativos (despesas)
         receitas = np.where(self.fluxo_caixa > 0, self.fluxo_caixa, 0)
@@ -48,7 +50,7 @@ class CashFlow:
         for i, valor in enumerate(self.fluxo_caixa):
             if valor != 0:
                 plt.text(i, valor + (0.1 if valor > 0 else -0.1), 
-                        f'{valor:.0f}', ha='center', va='bottom' if valor > 0 else 'top')
+                        f'{valor/1000:.0f}k', ha='center', va='bottom' if valor > 0 else 'top', size=8)
         
         plt.tight_layout()
         plt.show(block = False  )
