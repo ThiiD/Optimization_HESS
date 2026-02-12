@@ -35,8 +35,15 @@ preco_diesel = 6.00  # R$/litro
 rendimento_diesel = 3.0  # kWh/litro
 
 # Estimativa do preço da eletronica de potencia
-total_elepot = 2000
-preco_razao_elepot = 1000      # Razao R$/kW
+total_elepot = 2000                                                                                             # Potencia total que se deseja gerenciar
+preco_elepot_referencia = 52700                                                                                 # Preço elepot USD/MW (ref DOI 10.1109/ECCE.2013.6646971)
+dolar_2013 = 2.15                                                                                               # Cotação do dolar na epoca (google)
+inflacao_acumulada = 2.0041                                                                                     # Inflacao acumulada entre a epoca e agora (fonte: ibge)
+ppi_2013 = 59.5                                                                                                 # ppi da epoca
+ppi_2026 = 61.058                                                                                               # ppi da epoca
+ppi = ppi_2026 / ppi_2013                                                                                       # razao do ppi
+preco_razao_elepot = (preco_elepot_referencia/1e3) *   dolar_2013 * inflacao_acumulada * ppi                    # Razao R$/kW
+
 
 taxa_disponibilidade = 0.8  # 80% de disponibilidade diária
 
@@ -509,6 +516,8 @@ else:
 
 print(f'X: {X}')
 print(f'F: {F}')
+outputDisplay.finalize()
+
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------- Visualização do espaço de design -------------------------------------------------------------------
@@ -547,11 +556,22 @@ for i in range(min(10, len(X))):  # Mostrar as 10 melhores soluções
         print(f"Número de supercapacitores em paralelo: {int(round(X[i,1]))}")
         print(f"Valor limiar de potência: {step_pth * int(round(X[i,2]))}")
         print(f"VPL (Valor Presente Líquido): R$ {(-F[i,0]):,.2f}")
+        with open(diretorio_figuras + "/" + f"{arquivo.split(".")[0]}_outputValues.txt", "w") as text_file:
+            text_file.write(f"Número de baterias em paralelo: {int(round(X[i,0]))}\n")
+            text_file.write(f"Número de supercapacitores em paralelo: {int(round(X[i,1]))}\n")
+            text_file.write(f"Valor limiar de potência: {step_pth * int(round(X[i,2]))}\n")
+            text_file.write(f"VPL (Valor Presente Líquido): R$ {(-F[i,0]):,.2f}\n")
     except:
         print(f"Número de baterias em paralelo: {int(round(X[0]))}")
         print(f"Número de supercapacitores em paralelo: {int(round(X[1]))}")
         print(f"Valor limiar de potência: {step_pth * int(round(X[2]))}")
         print(f"VPL (Valor Presente Líquido): R$ {(-F[0]):,.2f}")
+        with open(diretorio_figuras + "/" + f"{arquivo.split(".")[0]}_outputValues.txt", "w") as text_file:
+            text_file.write(f"Número de baterias em paralelo: {int(round(X[0]))}\n")
+            text_file.write(f"Número de supercapacitores em paralelo: {int(round(X[1]))}\n")
+            text_file.write(f"Valor limiar de potência: {step_pth * int(round(X[2]))}\n")
+            text_file.write(f"VPL (Valor Presente Líquido): R$ {(-F[0]):,.2f}")
+            
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------- Seleção da melhor solução ------------------------------------------------------------------------------------

@@ -1,0 +1,4 @@
+Número de baterias em paralelo: 8
+Número de supercapacitores em paralelo: 0
+Valor limiar de potência: 1950
+VPL (Valor Presente Líquido): R$ 15,049,048.77
