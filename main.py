@@ -75,11 +75,8 @@ max_bat = 10                                                        # Número m�
 
 # Definição dos parametros do problema
 cot_dolar = 5.57            # 22/07/2025
-Pb_usd = 28.00              # Preço da bateria em dolares (Fonte: data_sources.xlsx)
-Puc_usd = 53.75             # Preço do supercapacitor em dolares (Fonte: data_sources.xlsx)
-
-Pb = Pb_usd * cot_dolar     # Preço da bateria em reais
-Puc = Puc_usd * cot_dolar   # Preço do supercapacitor em reais
+Pb = 28.00                  # Preço da bateria em dolares (Fonte: data_sources.xlsx)
+Puc = 53.75                 # Preço do supercapacitor em dolares (Fonte: data_sources.xlsx)
 
 Vb = 0.596                  # Volume da bateria em L (Fonte: data_sources.xlsx)
 Vuc = 0.496                 # Volume do supercapacitor em L (Fonte: data_sources.xlsx)
@@ -195,6 +192,12 @@ class MyProblem(ElementwiseProblem):
                          xu=np.array([max_bat, max_uc, max_pth]),           # Máximo de 10 para elementos armazenados e 80 para potência (2000 kW)
                          type_var=np.int64)                                 # Especificando que as variáveis são inteiros
         self.simulation_cache = {}
+        self._preco_diesel = preco_diesel
+        self._cot_dolar = cot_dolar
+        self._preco_razao_elepot = preco_razao_elepot
+        self._Pb = Pb
+        self._Puc = Puc
+        self._T_xb = T_xb
 
     def setData(self, data: str, sheet: str):
         self._data = data
@@ -202,6 +205,28 @@ class MyProblem(ElementwiseProblem):
         df = pd.read_excel(data, sheet_name=sheet)
         self._duracao_ciclo_operacao_hora = len(df) * 1 /3600
 
+    def setParams(self, dict : dict) -> None:
+        """
+        Método para setar os parametros de simulacao. Util para a análise de sensibilidade        
+        :param self: Description
+        :param dict: Description
+        :type dict: dict
+        """
+        self._preco_diesel = dict["Preco Diesel"]
+        self._cot_dolar = dict["Cotacao Dolar"]
+        self._preco_razao_elepot = dict["Preco Razao Elepot"]
+        self._Pb = dict["Preco Bat"]
+        self._Puc = dict["Preco UC"]
+        self._T_xb = dict["C-rate"]
+
+        print(f"""CONFERENCIA: Preço Diesel         : {self._preco_diesel};
+                               Cotação Dolar        : {self._cot_dolar};
+                               Preço Elepot:        : {self._preco_razao_elepot};   Corrigido Dolar: {self._preco_razao_elepot * self._cot_dolar}
+                               Preço bateria        : {self._Pb};                   Corrigido Dolar: {self._Pb * self._cot_dolar};   
+                               Preço Supercapacitor : {self._Puc};                  Corrigido Dolar: {self._Puc * self._cot_dolar};
+                               C-Rate Bateria       : {self._T_xb}
+                               """)
+        sleep(10)
 
     def _evaluate(self, x, out, *args, **kwargs):
         Np_b = int(round(x[0]))                                 # Número de baterias em paralelo
@@ -213,16 +238,14 @@ class MyProblem(ElementwiseProblem):
         total_supercaps = Np_uc * Nm_uc * Ns_uc
 
         # Cálculo do custo inicial (investimento)
-        custo_inicial = (total_baterias * Pb) + (total_supercaps * Puc) + (total_elepot * preco_razao_elepot)
+        custo_inicial = (total_baterias * self._Pb * self._cot_dolar) + (total_supercaps * self._Puc * self._cot_dolar) + (total_elepot * self._preco_razao_elepot * self._cot_dolar)
 
         # Simulação para calcular energia rejeitada
         cache_key = (Np_b, Np_uc, Pth)
         if cache_key not in self.simulation_cache:
             sim = Simulation()
-            sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.2, SoC=50, T_m = T_xb)
+            sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.2, SoC=50, T_m = self._T_xb)
             sim.setParam_UC(C=3400, Cap_uc=Cap_uc, Ns=Ns_uc, Np=Np_uc, Nm=Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
-            # data = r"data\CR-3112_28-09-24_AGGREGATED.xlsx"
-            # sheet = "Log"
             sim.simulate(self._data, self._sheet, threshold=Pth)
             energia_rejeitada = sum(sim._p_reject) / 3600  # Wh
             # Energia absorvida é a soma das potências negativas (absorvidas) pelos sistemas
@@ -235,7 +258,7 @@ class MyProblem(ElementwiseProblem):
             self.simulation_cache[cache_key] = (energia_rejeitada, energia_absorvida, sim._SoC, sim._SoC_UC)
         else:
             sim = Simulation()
-            sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.2, SoC=50, T_m = T_xb)
+            sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.2, SoC=50, T_m = self._T_xb)
             sim.setParam_UC(C=3400, Cap_uc=Cap_uc, Ns=Ns_uc, Np=Np_uc, Nm=Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
             energia_rejeitada, energia_absorvida, sim._SoC, sim._SoC_UC = self.simulation_cache[cache_key]
 
@@ -252,11 +275,7 @@ class MyProblem(ElementwiseProblem):
 
         # Economia mensal de diesel
         litros_diesel_economizados = energia_absorvida_mes_kWh / rendimento_diesel
-        economia_mensal = litros_diesel_economizados * preco_diesel
-
-        # Vida útil dos componentes em meses
-        vida_util_bateria_meses = ciclos_bateria_vida / self.ciclos_por_mes if self.ciclos_por_mes > 0 else horizonte_analise_meses
-        vida_util_supercap_meses = horas_supercap_vida / (horas_operacao_dia * dias_por_mes) if horas_operacao_dia > 0 else horizonte_analise_meses
+        economia_mensal = litros_diesel_economizados * self._preco_diesel
 
         # Fluxo de caixa mensal e variaveis
         fluxo_caixa = []
@@ -266,18 +285,18 @@ class MyProblem(ElementwiseProblem):
         troca_uc = []                      
         mes = 0
         numero_ciclos_batt_total = 0
-        custo_bateria = total_baterias * Pb
-        custo_supercap = total_supercaps * Puc
+        custo_bateria = total_baterias * self._Pb * self._cot_dolar
+        custo_supercap = total_supercaps * self._Puc * self._cot_dolar
 
         # Analise financeira mensal
         while mes < horizonte_analise_meses:
             balanco_mes = 0
             if mes == 0:
-                fluxo_caixa.append(-custo_inicial)  # Investimento inicial
+                fluxo_caixa.append(-custo_inicial)      # Investimento inicial
                 saude_bat.append(100)                 # Saude da bateria em 100% no mes 0
-                troca_bat.append(0)                 # Nao a troca da bateria no mes 0 (saida ja realizada no custo inicial)
-                saude_uc.append(1)                  # Saude do UC em 100% no mes 0
-                troca_uc.append(0)                  # Nao ha troca de UC no mes 0 (saida ja realizada no custo inicial)
+                troca_bat.append(0)                     # Nao a troca da bateria no mes 0 (saida ja realizada no custo inicial)
+                saude_uc.append(1)                      # Saude do UC em 100% no mes 0
+                troca_uc.append(0)                      # Nao ha troca de UC no mes 0 (saida ja realizada no custo inicial)
 
             else:
                 balanco_mes += economia_mensal
