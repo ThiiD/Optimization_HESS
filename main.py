@@ -31,18 +31,20 @@ fig_width_cm = 24/2.4
 fig_height_cm = 18/2.4
 
 # Parâmetros financeiros e operacionais
-preco_diesel = 6.00  # R$/litro
+preco_diesel = 5.78  # R$/litro
 rendimento_diesel = 3.0  # kWh/litro
 
 # Estimativa do preço da eletronica de potencia
 total_elepot = 2000                                                                                             # Potencia total que se deseja gerenciar
-preco_elepot_referencia = 52700                                                                                 # Preço elepot USD/MW (ref DOI 10.1109/ECCE.2013.6646971)
-dolar_2013 = 2.15                                                                                               # Cotação do dolar na epoca (google)
-inflacao_acumulada = 2.0041                                                                                     # Inflacao acumulada entre a epoca e agora (fonte: ibge)
-ppi_2013 = 59.5                                                                                                 # ppi da epoca
-ppi_2026 = 61.058                                                                                               # ppi da epoca
-ppi = ppi_2026 / ppi_2013                                                                                       # razao do ppi
-preco_razao_elepot = (preco_elepot_referencia/1e3) *   dolar_2013 * inflacao_acumulada * ppi                    # Razao R$/kW
+# preco_elepot_referencia = 52700                                                                                 # Preço elepot USD/MW (ref DOI 10.1109/ECCE.2013.6646971)
+# dolar_2013 = 2.15                                                                                               # Cotação do dolar na epoca (google)
+# inflacao_acumulada = 2.0041                                                                                     # Inflacao acumulada entre a epoca e agora (fonte: ibge)
+# ppi_2013 = 59.5                                                                                                 # ppi da epoca
+# ppi_2026 = 61.058                                                                                               # ppi da epoca
+# ppi = ppi_2026 / ppi_2013                                                                                       # razao do ppi
+# preco_razao_elepot = (preco_elepot_referencia/1e3) *   dolar_2013 * inflacao_acumulada * ppi                    # Razao R$/kW
+
+preco_razao_elepot = 10                                                                                         # Razao USD/kW sugerida pelo Guilherme          
 
 
 taxa_disponibilidade = 0.8  # 80% de disponibilidade diária
@@ -74,7 +76,7 @@ min_bat = 0                                                         # Número m�
 max_bat = 10                                                        # Número máximo de baterias
 
 # Definição dos parametros do problema
-cot_dolar = 5.57            # 22/07/2025
+cot_dolar = 5.30            # Valor sugerido pelo Guilherme
 Pb = 28.00                  # Preço da bateria em dolares (Fonte: data_sources.xlsx)
 Puc = 53.75                 # Preço do supercapacitor em dolares (Fonte: data_sources.xlsx)
 
@@ -226,7 +228,7 @@ class MyProblem(ElementwiseProblem):
                                Preço Supercapacitor : {self._Puc};                  Corrigido Dolar: {self._Puc * self._cot_dolar};
                                C-Rate Bateria       : {self._T_xb}
                                """)
-        sleep(10)
+        # sleep(10)
 
     def _evaluate(self, x, out, *args, **kwargs):
         Np_b = int(round(x[0]))                                 # Número de baterias em paralelo

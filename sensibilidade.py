@@ -20,7 +20,7 @@ variacao = np.array([0.6, 0.8, 1.2, 1.4])
 
 # Parâmetros financeiros e operacionais
 preco_diesel = 6.00
-vetor_preco_diesel = preco_diesel * variacao                                                                    # R$/litro
+vetor_preco_diesel = [3.69, 5.78, 7.46]                                                                         # R$/litro
 rendimento_diesel = 3.0                                                                                         # kWh/litro
 
 # Estimativa do preço da eletronica de potencia
@@ -33,7 +33,7 @@ ppi_2026 = 61.058                                                               
 ppi = ppi_2026 / ppi_2013                                                                                       # razao do ppi
 preco_razao_elepot = (preco_elepot_referencia/1e3) * ppi                                                        # Razao USD/kW
 
-vetor_preco_razao_elepot = variacao * preco_razao_elepot
+vetor_preco_razao_elepot = [5, 10, 20]
 
 
 taxa_disponibilidade = 0.8  # 80% de disponibilidade diária
@@ -66,11 +66,11 @@ max_bat = 10                                                        # Número m�
 
 # Definição dos parametros do problema
 cot_dolar = 5.57                                                    # 22/07/2025
-vetor_cot_dolar = variacao * cot_dolar                              # Vetor de variacao da cotação do dolar
+vetor_cot_dolar = [4.58, 5.30, 6.31]                                # Vetor de variacao da cotação do dolar
 Pb_usd = 28.00                                                      # Preço da bateria em dolares (Fonte: data_sources.xlsx)
-vetor_Pb_uds = variacao * Pb_usd                                    # Vetor de sensibilidade do preço da bateria em dolares
+vetor_Pb_uds = [6.4, 12.8, 34.688]                                    # Vetor de sensibilidade do preço da bateria em dolares
 Puc_usd = 53.75                                                     # Preço do supercapacitor em dolares (Fonte: data_sources.xlsx)
-vetor_Puc_usd = variacao * Puc_usd                                  # Vetor de sensibilidade do preço do supercapacitor em dolares
+vetor_Puc_usd = [5.85, 9.75, 13.65]                                  # Vetor de sensibilidade do preço do supercapacitor em dolares
 
 
 
@@ -87,7 +87,7 @@ Nm_uc = 20                                                          # Número de
 
 Cap_b = 40.0                                                        # Capacidade da bateria em Ah
 T_xb = 6                                                            # Multiplicador da capacidade da bateria
-vetor_T_xb = variacao * T_xb                                        # Vetir de sensibilidade da capacidade da bateria
+vetor_T_xb = [2, 6, 10]                                        # Vetir de sensibilidade da capacidade da bateria
 Cap_uc = 280.0                                                      # Capacidade do supercapacitor em Ah
 T_xuc = 8                                                           # Multiplicador da capacidade do supercapacitor
 vetor_T_xuc = variacao * T_xuc                                      # Vetor de sensibilidade da capacidade do supercapacitor
