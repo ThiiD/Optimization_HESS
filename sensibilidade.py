@@ -92,7 +92,7 @@ Cap_uc = 280.0                                                      # Capacidade
 T_xuc = 8                                                           # Multiplicador da capacidade do supercapacitor
 vetor_T_xuc = variacao * T_xuc                                      # Vetor de sensibilidade da capacidade do supercapacitor
 
-arquivo = "CR-3112_28-09-24_AGGREGATED.xlsx"
+arquivo = "UMAX_18-10-24.xlsx"
 diretorio_figuras = "Figuras/" + arquivo.split(".")[0]
 os.makedirs(diretorio_figuras, exist_ok=True)
 data = "data/" + arquivo

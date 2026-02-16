@@ -169,7 +169,11 @@ class Simulation():
         data = pd.read_excel(data, sheet_name=sheet)
         data["Time"] = range(0, len(data))
         if sheet == "Dados":            powers = data['Traction Power'] - data["Braking Power"]
-        if sheet == "Log":              powers = (data['fa00_altoutvolts'] * data['fa08_m2amps']) / 1000
+        if sheet == "Log":
+            try:
+                powers = (data['fa00_altoutvolts'] * data['fa08_m2amps']) / 1000
+            except:
+                powers = (data['ai_11_altoutvolts'] * data['ai_04_m2amps']) / 1000
         
         # Simulação
         for power in powers:
@@ -180,7 +184,7 @@ class Simulation():
             
             # Atualiza bateria
             i_bat, p_bat_reject_1 = self._batt.setCurrent(power_bat)
-            SoC, v_banco_bat, p_bat_reject_2 = self._batt.updateEnergy(i_bat, 1)
+            SoC, v_banco_bat, p_bat_reject_2, i_bat = self._batt.updateEnergy(i_bat, 1)
             p_bat_reject = p_bat_reject_1 + p_bat_reject_2
             
             # Atualiza supercapacitor

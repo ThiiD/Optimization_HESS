@@ -108,7 +108,7 @@ class Batt():
         return self._total_energy
     
     
-    def updateEnergy(self, current: float, dt: float) -> (float | float | float):
+    def updateEnergy(self, current: float, dt: float) -> (float | float | float | float):
         """
         Atualiza a energia total da bateria usando contador de Coulomb
         :param float current: Corrente da bateria (A, + carga, - descarga)
@@ -116,18 +116,20 @@ class Batt():
         :return float SoC: SoC da bateria
         :return float v_banco: Tensão total do pack de bateria
         :return float p_reject: Potência rejeitada (kW)
+        :return float i_bat: Corrente limitada por SoC e maximo/minimo de corrente (A)
         """
         # Calcula variação de energia
         if self._Np == 0:
             self.SoC = 0
             self._v_banco = 0
             p_reject = 0
+            i_bat = 0
         else:
-            charge = -1 * current * dt / 3600  # Converte para horas
-            energy_variation = self._v_banco * charge
+            charge = -1 * current * dt / 3600                                   # Converte para horas
+            energy_variation = self._v_banco * charge                           # Variacao de energia em Wh
             
             # Calcula nova energia
-            new_energy = self._SoC_Energy + energy_variation
+            new_energy = self._SoC_Energy + energy_variation                    # Nova energia, considerando a variacao
             
             # Limita energia entre mínimo e máximo
             clip_energy = np.clip(
@@ -135,7 +137,8 @@ class Batt():
                 (self._min_SoC/100) * self._total_energy,
                 (self._max_SoC/100) * self._total_energy
             )
-            p_reject = ((new_energy - clip_energy) / dt) / 1000             # Potência rejeitada (kW)
+            p_reject = -1* (((new_energy - clip_energy) * 3600) / dt) / 1000                         # Potência rejeitada (kW)
+            i_bat = -1 * (((clip_energy - self._SoC_Energy) * 3600) / dt) / self._v_banco       
 
 
             
@@ -143,7 +146,7 @@ class Batt():
             self._SoC = self.Energy2SoC(clip_energy)
             self._v_banco = self._Ns * self._Nm * self.LUT(self._SoC)
         
-        return self._SoC, self._v_banco, p_reject
+        return self._SoC, self._v_banco, p_reject, i_bat
 
     def setC_rate(self, C_rate: float) -> None:
         """

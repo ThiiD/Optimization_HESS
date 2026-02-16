@@ -188,7 +188,7 @@ class MyProblem(ElementwiseProblem):
 
     def __init__(self):
         super().__init__(n_var=3,                                           # Np_b, Np_uc e Pth
-                         n_obj=1,                                           # VPL e Peso
+                         n_obj=1,                                           # VPL
                          n_ieq_constr=0,                                    # Sem restrições
                          xl=np.array([min_bat, min_uc, min_pth]),           # Mínimo de 1 para cada elemento armazenador e 0 para potencia (0 kW)
                          xu=np.array([max_bat, max_uc, max_pth]),           # Máximo de 10 para elementos armazenados e 80 para potência (2000 kW)
@@ -356,7 +356,7 @@ class MyProblem(ElementwiseProblem):
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
 problem = MyProblem()
-arquivo = "UMAX_18-10-24.xlsx"
+arquivo = "AGREGADOR ANALYSIS.xlsx"
 diretorio_figuras = "Figuras/" + arquivo.split(".")[0]
 os.makedirs(diretorio_figuras, exist_ok=True)
 data = "data/" + arquivo
@@ -613,8 +613,18 @@ except:
 sim = Simulation()
 sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=best_Np_b, Nm=Nm_b, Vnom=3.2, SoC=50, T_m=T_xb)
 sim.setParam_UC(C=3400, Cap_uc=Cap_uc, Ns=Ns_uc, Np=best_Np_uc, Nm=Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
-# data = r"data\CR-3112_28-09-24_AGGREGATED.xlsx"
-# sheet = "Log"
+sim.simulate(data, sheet, best_Pth)
+
+# -----------------------------------------------------------------------------------------------------------
+# ---------------------- Força simulacao com determinado valor ----------------------------------------------
+# -----------------------------------------------------------------------------------------------------------
+# sim = Simulation()
+# sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=5, Nm=Nm_b, Vnom=3.2, SoC=50, T_m=T_xb)
+# sim.setParam_UC(C=3400, Cap_uc=Cap_uc, Ns=Ns_uc, Np=2, Nm=Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
+# sim.simulate(data, sheet, 1400)
+# -----------------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------------------------
 
 # Carregar dados do Excel para plotar potência, corrente e tensão de entrada
 import pandas as pd
@@ -623,10 +633,19 @@ input_df = pd.read_excel(data, sheet_name="Log")
 time = np.arange(len(input_df))
 
 # Potência do diesel (entrada real do sistema)
-powers_diesel = input_df["fa08_m2amps"] * input_df["fa00_altoutvolts"]  # em Watts
+try:
+    powers_diesel = input_df["fa08_m2amps"] * input_df["fa00_altoutvolts"]  # em Watts
+    corrente = input_df["fa08_m2amps"]
+    tensao = input_df["fa00_altoutvolts"]
+except:
+    powers_diesel = input_df["ai_04_m2amps"] * input_df["ai_11_altoutvolts"]  # em Watts
+    corrente = input_df["ai_04_m2amps"]
+    tensao = tensao = input_df["ai_11_altoutvolts"]
+
+
 
 # Ajustar a simulação para usar a potência do diesel como entrada
-sim.simulate(data, sheet, best_Pth)
+
 
 # O restante do código permanece igual, usando os resultados da simulação
 
@@ -642,17 +661,17 @@ sim.simulate(data, sheet, best_Pth)
 
 fig, axs = plt.subplots(3, 1, figsize=(fig_width_cm, fig_height_cm*1.2), sharex=True)
 axs[0].set_title('Dados de Entrada do Ciclo (Arquivo Excel)')
-axs[0].plot(time, input_df['fa00_altoutvolts'], linewidth = 2, label='Tensão [V]', color='tab:blue')
+axs[0].plot(time, tensao, linewidth = 2, label='Tensão [V]', color='tab:blue')
 axs[0].set_ylabel('Tensão [V]')
 axs[0].grid()
 axs[0].legend(loc='upper right')
 
-axs[1].plot(time, input_df['fa08_m2amps'], linewidth = 2, label='Corrente [A]', color='tab:orange')
+axs[1].plot(time, corrente, linewidth = 2, label='Corrente [A]', color='tab:orange')
 axs[1].set_ylabel('Corrente [A]')
 axs[1].grid()
 axs[1].legend(loc='upper right')
 
-axs[2].plot(time, input_df["fa08_m2amps"] * input_df["fa00_altoutvolts"]/1000, linewidth = 2, label='Potência [kW]', color = "tab:green")
+axs[2].plot(time, powers_diesel/1000, linewidth = 2, label='Potência [kW]', color = "tab:green")
 axs[2].set_ylabel('Potência [kW]')
 axs[2].set_xlabel('Tempo [s]')
 axs[2].set_xlim(0, len(input_df))
@@ -817,8 +836,28 @@ plt.show(block=False)
 plt.figure(figsize=(fig_width_cm, fig_height_cm/1.5))
 p_rej_total = np.array(sim._p_bat_reject) + np.array(sim._p_uc_reject)
 # Potência medida do sistema (entrada)
-pot_sistema = input_df["fa08_m2amps"] * input_df["fa00_altoutvolts"] / 1000  # kW
-plt.plot(time, pot_sistema, label='Potência Sistema (Diesel) [kW]', color='black')
+
+
+
+
+
+
+
+# try:
+#     pot_sistema = input_df["fa08_m2amps"] * input_df["fa00_altoutvolts"] / 1000 # em Watts
+# except:
+#     pot_sistema = input_df["ai_04_m2amps"] * input_df["ai_11_altoutvolts"] / 1000 # em Watts
+
+
+
+
+
+
+
+
+
+# pot_sistema = input_df["fa08_m2amps"] * input_df["fa00_altoutvolts"] / 1000  # kW
+plt.plot(time, powers_diesel / 1000, label='Potência Sistema (Diesel) [kW]', color='black')
 
 # Soma das potências simuladas (bateria + supercapacitor + rejeitada)
 pot_simulada = (np.array(sim._p_batt) + np.array(sim._p_uc) + np.array(p_rej_total) * 1000) / 1e3  # kW
