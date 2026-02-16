@@ -122,6 +122,9 @@ sensibilidade_cache = {"Preco Diesel"           :   [],
                        "C-rate"                 :   [],
                        "Np,b"                   :   [],
                        "Np,uc"                  :   [],
+                       "Energia Total Bat."     :   [],
+                       "Energia Total UC."      :   [],
+                       "Energia Total"          :   [],
                        "Pth"                    :   [],
                        "VPL"                    :   []}
 
@@ -190,6 +193,10 @@ for preco_diesel in vetor_preco_diesel:
                         for i, fc in enumerate(problem.melhor_fluxo_caixa):
                             vpl += fc / ((1 + taxa_desconto_mensal) ** i)
                         
+
+                        energia_bat = 0.128 * 16 * 24 * best_Np_b
+                        energia_sc = 0.0039 * 16 * 20 * best_Np_uc
+                        energia_total = energia_bat + energia_sc
                         sensibilidade_cache["Preco Diesel"].append(preco_diesel)
                         sensibilidade_cache["Cotacao Dolar"].append(cot_dolar)
                         sensibilidade_cache["Preco Razao Elepot"].append(preco_razao_elepot)
@@ -201,6 +208,9 @@ for preco_diesel in vetor_preco_diesel:
                         sensibilidade_cache["C-rate"].append(T_xb)
                         sensibilidade_cache["Np,b"].append(best_Np_b)
                         sensibilidade_cache["Np,uc"].append(best_Np_uc)
+                        sensibilidade_cache["Energia Total Bat."].append(energia_bat)
+                        sensibilidade_cache["Energia Total UC."].append(energia_sc)
+                        sensibilidade_cache["Energia Total"].append(energia_total)
                         sensibilidade_cache["Pth"].append(best_Pth)
                         sensibilidade_cache["VPL"].append(vpl)
 
@@ -210,7 +220,7 @@ for preco_diesel in vetor_preco_diesel:
 
 
 
-columns_df = ["Preco Diesel", "Cotacao Dolar", "Preco Razao Elepot", "Preco R.E. Cor. Dolar",  "Preco Bat", "Preco Bat Cor. Dolar", "Preco UC", "Preco UC Cor. Dolar", "C-rate", "Np,b", "Np,uc", "Pth", "VPL"]
+columns_df = ["Preco Diesel [R$]", "Cotacao Dolar", "Preco Razao Elepot [USD]", "Preco R.E. Cor. Dolar [R$]",  "Preco Bat [USD]", "Preco Bat Cor. Dolar [R$]", "Preco UC [USD]", "Preco UC Cor. Dolar [R$]", "C-rate", "Np,b", "Np,uc", "Energia Total Bat. [kWh]", "Energia Total UC. [kWh]", "Energia Total [kWh]", "Pth [kW]", "VPL [R$]"]
 df = pd.DataFrame(sensibilidade_cache, columns = columns_df)
 df.to_excel(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_sensibilidade.xlsx", columns=columns_df)
 

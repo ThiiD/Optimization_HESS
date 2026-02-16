@@ -32,9 +32,7 @@ class Simulation():
 
         self._uc = Uc()
         self._batt = Batt()
-
         
-
     def setParam_Batt(self, C: float, Ns: int, Np: int, Nm: int, Vnom: float, SoC: float, T_m: int) -> None:
         """
         Configura parâmetros da bateria

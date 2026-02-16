@@ -82,6 +82,7 @@ Puc = 53.75                 # Preço do supercapacitor em dolares (Fonte: data_s
 
 Vb = 0.596                  # Volume da bateria em L (Fonte: data_sources.xlsx)
 Vuc = 0.496                 # Volume do supercapacitor em L (Fonte: data_sources.xlsx)
+volume_maximo = 1160.00     # Volume máximo hipotetico, em L. Alterar para valor fornecido pelo Fabricio.
 
 Wb = 1.060                  # Peso da bateria em kg (Fonte: data_sources.xlsx)
 Wuc = 0.460                 # Peso do supercapacitor em kg (Fonte: data_sources.xlsx)
@@ -189,7 +190,7 @@ class MyProblem(ElementwiseProblem):
     def __init__(self):
         super().__init__(n_var=3,                                           # Np_b, Np_uc e Pth
                          n_obj=1,                                           # VPL
-                         n_ieq_constr=0,                                    # Sem restrições
+                         n_ieq_constr=1,                                    # Restrição de volume para os elementos armazenadores
                          xl=np.array([min_bat, min_uc, min_pth]),           # Mínimo de 1 para cada elemento armazenador e 0 para potencia (0 kW)
                          xu=np.array([max_bat, max_uc, max_pth]),           # Máximo de 10 para elementos armazenados e 80 para potência (2000 kW)
                          type_var=np.int64)                                 # Especificando que as variáveis são inteiros
@@ -238,6 +239,10 @@ class MyProblem(ElementwiseProblem):
         # Cálculo do número total de componentes
         total_baterias = Np_b * Nm_b * Ns_b
         total_supercaps = Np_uc * Nm_uc * Ns_uc
+
+        # Calcula o volume total dos elementos armazenadores
+        G = (Vb * total_baterias) + (Vuc * total_supercaps) - volume_maximo
+
 
         # Cálculo do custo inicial (investimento)
         custo_inicial = (total_baterias * self._Pb * self._cot_dolar) + (total_supercaps * self._Puc * self._cot_dolar) + (total_elepot * self._preco_razao_elepot * self._cot_dolar)
@@ -340,7 +345,7 @@ class MyProblem(ElementwiseProblem):
 
         # Como a otimização é de minimização, usamos o valor negativo do VPL
         out["F"] = [-vpl]
-        out["G"] = []
+        out["G"] = [G]
         
         # Armazenar o fluxo de caixa se for a melhor solução até agora
         if not hasattr(self, 'melhor_vpl') or vpl > self.melhor_vpl:
