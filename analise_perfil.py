@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-dados = "CR-3112_28-09-24_AGGREGATED.xlsx"
+dados = "AGREGADOR ANALYSIS.xlsx"
 dados_name = dados.split(".")[0]
 sheet = "Log"
 
@@ -12,7 +12,7 @@ path_figuras = "Figuras/" + dados_name + "/"
 
 
 dir_dados = path_dados + dados
-dir_output = path_figuras + dados_name + "_analise_perfil.xlsx"
+dir_output = path_figuras + dados_name + "_analise_perfil.csv"
 print(dir_output)
 
 df = pd.read_excel(dir_dados, sheet_name = sheet)
@@ -73,4 +73,4 @@ print(dict)
 
 df2 = pd.Series(dict).reset_index()
 df2.columns = ["Parâmetro Observado", "Valor"]
-df2.to_excel(dir_output, index=False)
+df2.to_csv(dir_output, index=False, sep=";")

@@ -59,9 +59,9 @@ horas_supercap_vida = 1000000  # horas até 80% da capacidade (Baseado no datash
 horizonte_analise_meses = 60  # 5 anos
 
 # Taxa de desconto mensal (ex: 10% ao ano -> 0.10/12)
-taxa_desconto_anual = 0.10                                                  # Taxa minima de atratividade anual 
+taxa_desconto_anual = 0.10                                          # Taxa minima de atratividade anual 
 
-taxa_desconto_mensal = (1 + taxa_desconto_anual) ** (1/12) - 1              # TMA mensal calculada a partir da TMA anual
+taxa_desconto_mensal = (1 + taxa_desconto_anual) ** (1/12) - 1      # TMA mensal calculada a partir da TMA anual
 
 # Definições relativas a otmização
 step_pth = 25                                                       # Step entre as potências de limiares simuladas
@@ -75,27 +75,30 @@ max_uc = 10                                                         # Número m�
 min_bat = 0                                                         # Número mínimo de baterias
 max_bat = 10                                                        # Número máximo de baterias
 
+i_SoC_Bat = 20
+i_SoC_UC = 3
+
 # Definição dos parametros do problema
-cot_dolar = 5.30            # Valor sugerido pelo Guilherme
-Pb = 28.00                  # Preço da bateria em dolares (Fonte: data_sources.xlsx)
-Puc = 53.75                 # Preço do supercapacitor em dolares (Fonte: data_sources.xlsx)
+cot_dolar = 5.30                                                    # Valor sugerido pelo Guilherme
+Pb = 28.00                                                          # Preço da bateria em dolares (Fonte: data_sources.xlsx)
+Puc = 53.75                                                         # Preço do supercapacitor em dolares (Fonte: data_sources.xlsx)
 
-Vb = 0.596                  # Volume da bateria em L (Fonte: data_sources.xlsx)
-Vuc = 0.496                 # Volume do supercapacitor em L (Fonte: data_sources.xlsx)
-volume_maximo = 1160.00     # Volume máximo hipotetico, em L. Alterar para valor fornecido pelo Fabricio.
+Vb = 0.596                                                          # Volume da bateria em L (Fonte: data_sources.xlsx)
+Vuc = 0.496                                                         # Volume do supercapacitor em L (Fonte: data_sources.xlsx)
+volume_maximo = (np.pi * (26/2)**2 * 65 * 1e-6) * 41000             # Volume máximo hipotetico, em L. pi * r^2 * h <- volume da bateria de referencia, vezes o numero maximo de baterias de referencias.
 
-Wb = 1.060                  # Peso da bateria em kg (Fonte: data_sources.xlsx)
-Wuc = 0.460                 # Peso do supercapacitor em kg (Fonte: data_sources.xlsx)
+Wb = 1.060                                                          # Peso da bateria em kg (Fonte: data_sources.xlsx)
+Wuc = 0.460                                                         # Peso do supercapacitor em kg (Fonte: data_sources.xlsx)
 
-Ns_b = 16                   # Número de baterias em serie
-Nm_b = 24                   # Número de módulos de baterias
-Ns_uc = 16                  # Número de supercapacitores em serie
-Nm_uc = 20                  # Número de módulos de supercapacitores
+Ns_b = 16                                                           # Número de baterias em serie
+Nm_b = 24                                                           # Número de módulos de baterias
+Ns_uc = 16                                                          # Número de supercapacitores em serie
+Nm_uc = 20                                                          # Número de módulos de supercapacitores
 
-Cap_b = 40.0                # Capacidade da bateria em Ah
-T_xb = 6                    # Multiplicador da capacidade da bateria
-Cap_uc = 280.0              # Capacidade do supercapacitor em Ah
-T_xuc = 8                   # Multiplicador da capacidade do supercapacitor
+Cap_b = 40.0                                                        # Capacidade da bateria em Ah
+T_xb = 6                                                            # Multiplicador da capacidade da bateria
+Cap_uc = 280.0                                                      # Capacidade do supercapacitor em Ah
+T_xuc = 8                                                           # Multiplicador da capacidade do supercapacitor
 
 
 # Definição do problema de otimização
@@ -241,7 +244,8 @@ class MyProblem(ElementwiseProblem):
         total_supercaps = Np_uc * Nm_uc * Ns_uc
 
         # Calcula o volume total dos elementos armazenadores
-        G = (Vb * total_baterias) + (Vuc * total_supercaps) - volume_maximo
+        g1 = (Vb * total_baterias) + (Vuc * total_supercaps)
+        G =  g1 - volume_maximo
 
 
         # Cálculo do custo inicial (investimento)
@@ -251,8 +255,8 @@ class MyProblem(ElementwiseProblem):
         cache_key = (Np_b, Np_uc, Pth)
         if cache_key not in self.simulation_cache:
             sim = Simulation()
-            sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.2, SoC=50, T_m = self._T_xb)
-            sim.setParam_UC(C=3400, Cap_uc=Cap_uc, Ns=Ns_uc, Np=Np_uc, Nm=Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
+            sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.2, SoC=i_SoC_Bat, T_m = self._T_xb)
+            sim.setParam_UC(C=3400, Cap_uc=Cap_uc, Ns=Ns_uc, Np=Np_uc, Nm=Nm_uc, Vnom=3, SoC=i_SoC_UC, T_m=T_xuc)
             sim.simulate(self._data, self._sheet, threshold=Pth)
             energia_rejeitada = sum(sim._p_reject) / 3600  # Wh
             # Energia absorvida é a soma das potências negativas (absorvidas) pelos sistemas
@@ -265,8 +269,8 @@ class MyProblem(ElementwiseProblem):
             self.simulation_cache[cache_key] = (energia_rejeitada, energia_absorvida, sim._SoC, sim._SoC_UC)
         else:
             sim = Simulation()
-            sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.2, SoC=50, T_m = self._T_xb)
-            sim.setParam_UC(C=3400, Cap_uc=Cap_uc, Ns=Ns_uc, Np=Np_uc, Nm=Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
+            sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.2, SoC=i_SoC_Bat, T_m = self._T_xb)
+            sim.setParam_UC(C=3400, Cap_uc=Cap_uc, Ns=Ns_uc, Np=Np_uc, Nm=Nm_uc, Vnom=3, SoC=i_SoC_UC, T_m=T_xuc)
             energia_rejeitada, energia_absorvida, sim._SoC, sim._SoC_UC = self.simulation_cache[cache_key]
 
         # Energia absorvida por ciclo (Wh)
@@ -341,6 +345,7 @@ class MyProblem(ElementwiseProblem):
             vpl += fc / ((1 + taxa_desconto_mensal) ** i)
 
         print(f"VPL (Np_b: {Np_b}, Np_uc: {Np_uc}, Pth: {Pth}): {vpl}")
+        print(f'Volume Total: {g1}')
         print(f'---------------------------------------------------------')
 
         # Como a otimização é de minimização, usamos o valor negativo do VPL
@@ -348,8 +353,12 @@ class MyProblem(ElementwiseProblem):
         out["G"] = [G]
         
         # Armazenar o fluxo de caixa se for a melhor solução até agora
-        if not hasattr(self, 'melhor_vpl') or vpl > self.melhor_vpl:
+        if not hasattr(self, 'melhor_vpl') or (vpl > self.melhor_vpl and G < 0):
+            self.Np_b = Np_b
+            self.Np_uc = Np_uc
+            self.Pth = Pth
             self.melhor_vpl = vpl
+            self.volume_total = g1
             self.saude_bat = saude_bat
             self.troca_bat = troca_bat
             self.saude_uc = saude_uc
@@ -538,10 +547,12 @@ else:
     # Após a otimização
     X = res.X
     F = res.F
+    G = res.G
 
 
 print(f'X: {X}')
 print(f'F: {F}')
+print(f'G: {G}')
 outputDisplay.finalize()
 
 
@@ -580,22 +591,26 @@ for i in range(min(10, len(X))):  # Mostrar as 10 melhores soluções
     try:
         print(f"Número de baterias em paralelo: {int(round(X[i,0]))}")
         print(f"Número de supercapacitores em paralelo: {int(round(X[i,1]))}")
+        print(f'Volume ocupado: {(G[i,0] + volume_maximo):,.2f}')
         print(f"Valor limiar de potência: {step_pth * int(round(X[i,2]))}")
         print(f"VPL (Valor Presente Líquido): R$ {(-F[i,0]):,.2f}")
         with open(diretorio_figuras + "/" + f"{arquivo.split(".")[0]}_outputValues.txt", "w") as text_file:
             text_file.write(f"Número de baterias em paralelo: {int(round(X[i,0]))}\n")
             text_file.write(f"Número de supercapacitores em paralelo: {int(round(X[i,1]))}\n")
-            text_file.write(f"Valor limiar de potência: {step_pth * int(round(X[i,2]))}\n")
+            text_file.write(f"Volume Ocupado: {(G[i,0] + volume_maximo):,.2f} L \n")
+            text_file.write(f"Valor limiar de potência: {step_pth * int(round(X[i,2]))} kW\n")
             text_file.write(f"VPL (Valor Presente Líquido): R$ {(-F[i,0]):,.2f}\n")
     except:
         print(f"Número de baterias em paralelo: {int(round(X[0]))}")
         print(f"Número de supercapacitores em paralelo: {int(round(X[1]))}")
+        print(f'Volume ocupado: {(G[0] + volume_maximo):,.2f}')
         print(f"Valor limiar de potência: {step_pth * int(round(X[2]))}")
         print(f"VPL (Valor Presente Líquido): R$ {(-F[0]):,.2f}")
         with open(diretorio_figuras + "/" + f"{arquivo.split(".")[0]}_outputValues.txt", "w") as text_file:
             text_file.write(f"Número de baterias em paralelo: {int(round(X[0]))}\n")
             text_file.write(f"Número de supercapacitores em paralelo: {int(round(X[1]))}\n")
-            text_file.write(f"Valor limiar de potência: {step_pth * int(round(X[2]))}\n")
+            text_file.write(f"Volume máximo: {(G[0] + volume_maximo):,.2f} L")
+            text_file.write(f"Valor limiar de potência: {step_pth * int(round(X[2]))} kW\n")
             text_file.write(f"VPL (Valor Presente Líquido): R$ {(-F[0]):,.2f}")
             
 
@@ -939,11 +954,15 @@ plt.show(block=False)
 #         capacidade_supercap[i] = horas
 # print(capacidade_supercap)
 plt.figure(figsize=(fig_width_cm, fig_height_cm/1.5))
-plt.step(np.arange(horizonte_analise_meses), np.array(problem.saude_uc) * 100, color='tab:blue', where="post")
+if best_Np_uc == 0:
+    plt.step(np.arange(horizonte_analise_meses), np.zeros(horizonte_analise_meses), color='tab:blue', where="post")
+else:
+    plt.step(np.arange(horizonte_analise_meses), np.array(problem.saude_uc) * 100, color='tab:blue', where="post")
+    plt.ylim(99, 101)
 plt.title('Degradação do Supercapacitor ao Longo do Tempo')
 plt.xlabel('Meses')
 plt.ylabel(r'Capacidade Residual [\%]')
-plt.ylim(99, 101)
+
 plt.xlim(0, horizonte_analise_meses)
 plt.grid()
 plt.tight_layout()
