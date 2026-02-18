@@ -143,84 +143,84 @@ print(f"C-rate da bateria: {T_xb} C   ;       Variação: {vetor_T_xb}")
 
 
 for preco_diesel in vetor_preco_diesel:
-    # for cot_dolar in vetor_cot_dolar:
-    #     for preco_razao_elepot in vetor_preco_razao_elepot:
-    #         for Pb_usd in vetor_Pb_uds:
-    #             for Puc_usd in vetor_Puc_usd:
-    #                 for T_xb in vetor_T_xb:
+    for cot_dolar in vetor_cot_dolar:
+        for preco_razao_elepot in vetor_preco_razao_elepot:
+            for Pb_usd in vetor_Pb_uds:
+                for Puc_usd in vetor_Puc_usd:
+                    for T_xb in vetor_T_xb:
 
-    sensibilidade_input = {"Preco Diesel"       :   preco_diesel,
-                        "Cotacao Dolar"         :   cot_dolar,
-                        "Preco Razao Elepot"    :   preco_razao_elepot,
-                        "Preco Bat"             :   Pb_usd,
-                        "Preco UC"              :   Puc_usd,
-                        "C-rate"                :   T_xb}
-    problem = MyProblem()
-    problem.setData(data, sheet)
-    problem.setParams(sensibilidade_input)
-    Pb = Pb_usd * cot_dolar     # Preço da bateria em reais
-    Puc = Puc_usd * cot_dolar   # Preço do supercapacitor em reais
+                        sensibilidade_input = {"Preco Diesel"       :   preco_diesel,
+                                            "Cotacao Dolar"         :   cot_dolar,
+                                            "Preco Razao Elepot"    :   preco_razao_elepot,
+                                            "Preco Bat"             :   Pb_usd,
+                                            "Preco UC"              :   Puc_usd,
+                                            "C-rate"                :   T_xb}
+                        problem = MyProblem()
+                        problem.setData(data, sheet)
+                        problem.setParams(sensibilidade_input)
+                        Pb = Pb_usd * cot_dolar     # Preço da bateria em reais
+                        Puc = Puc_usd * cot_dolar   # Preço do supercapacitor em reais
 
-    # outputDisplay = MyOutput(diretorio_figuras + "/" + f"{arquivo.split(".")[0]}_nada.csv")
-    res = minimize(problem,
-            algorithm,
-            termination,
-            seed=1,
-            save_history=True,
-            verbose=True)
+                        # outputDisplay = MyOutput(diretorio_figuras + "/" + f"{arquivo.split(".")[0]}_nada.csv")
+                        res = minimize(problem,
+                                algorithm,
+                                termination,
+                                seed=1,
+                                save_history=True,
+                                verbose=True)
 
-    # Após a otimização
-    X = res.X
-    F = res.F
-    problem.simulation_cache = {}
+                        # Após a otimização
+                        X = res.X
+                        F = res.F
+                        problem.simulation_cache = {}
 
-    print(f'X: {X}')
-    print(f'F: {F}')
-    # outputDisplay.finalize()
+                        print(f'X: {X}')
+                        print(f'F: {F}')
+                        # outputDisplay.finalize()
 
 
-    try:
-        idx_best = np.argmin(F[:, 0])  # Menor valor negativo de F => maior VPL
-        best_Np_b = int(round(X[idx_best, 0]))
-        best_Np_uc = int(round(X[idx_best, 1]))
-        best_Pth = step_pth * int(round(X[idx_best, 2]))
-    except:
-        idx_best = np.argmin(F[0])  # Menor valor negativo de F => maior VPL
-        best_Np_b = int(round(X[0]))
-        best_Np_uc = int(round(X[1]))
-        best_Pth = step_pth * int(round(X[2]))
+                        try:
+                            idx_best = np.argmin(F[:, 0])  # Menor valor negativo de F => maior VPL
+                            best_Np_b = int(round(X[idx_best, 0]))
+                            best_Np_uc = int(round(X[idx_best, 1]))
+                            best_Pth = step_pth * int(round(X[idx_best, 2]))
+                        except:
+                            idx_best = np.argmin(F[0])  # Menor valor negativo de F => maior VPL
+                            best_Np_b = int(round(X[0]))
+                            best_Np_uc = int(round(X[1]))
+                            best_Pth = step_pth * int(round(X[2]))
 
-    vpl = 0
-    for i, fc in enumerate(problem.melhor_fluxo_caixa):
-        vpl += fc / ((1 + taxa_desconto_mensal) ** i)
-    
-    total_bat = 16 * 24 * best_Np_b
-    total_uc  = 16 * 20 * best_Np_uc
-    energia_bat = 0.128 * total_bat
-    energia_sc = 0.0039 * total_uc
-    volume_total = (0.596 * total_bat) + (0.496 * total_uc)
-    energia_total = energia_bat + energia_sc
-    sensibilidade_cache["Preco Diesel [R$]"].append(preco_diesel)
-    sensibilidade_cache["Cotacao Dolar"].append(cot_dolar)
-    sensibilidade_cache["Preco Razao Elepot [USD]"].append(preco_razao_elepot)
-    sensibilidade_cache["Preco R.E. Cor. Dolar [R$]"].append(preco_razao_elepot * cot_dolar)
-    sensibilidade_cache["Preco Bat [USD]"].append(Pb)
-    sensibilidade_cache["Preco Bat Cor. Dolar [R$]"].append(Pb * cot_dolar)
-    sensibilidade_cache["Preco UC [USD]"].append(Puc)
-    sensibilidade_cache["Preco UC Cor. Dolar [R$]"].append(Puc * cot_dolar)
-    sensibilidade_cache["C-rate"].append(T_xb)
-    sensibilidade_cache["Np,b"].append(best_Np_b)
-    sensibilidade_cache["Np,uc"].append(best_Np_uc)
-    sensibilidade_cache["Volume Total [L]"].append(volume_total)
-    sensibilidade_cache["Energia Total Bat. [kWh]"].append(energia_bat)
-    sensibilidade_cache["Energia Total UC. [kWh]"].append(energia_sc)
-    sensibilidade_cache["Energia Total [kWh]"].append(energia_total)
-    sensibilidade_cache["Pth [kW]"].append(best_Pth)
-    sensibilidade_cache["VPL [R$]"].append(vpl)
+                        vpl = 0
+                        for i, fc in enumerate(problem.melhor_fluxo_caixa):
+                            vpl += fc / ((1 + taxa_desconto_mensal) ** i)
+                        
+                        total_bat = 16 * 24 * best_Np_b
+                        total_uc  = 16 * 20 * best_Np_uc
+                        energia_bat = 0.128 * total_bat
+                        energia_sc = 0.0039 * total_uc
+                        volume_total = (0.596 * total_bat) + (0.496 * total_uc)
+                        energia_total = energia_bat + energia_sc
+                        sensibilidade_cache["Preco Diesel [R$]"].append(preco_diesel)
+                        sensibilidade_cache["Cotacao Dolar"].append(cot_dolar)
+                        sensibilidade_cache["Preco Razao Elepot [USD]"].append(preco_razao_elepot)
+                        sensibilidade_cache["Preco R.E. Cor. Dolar [R$]"].append(preco_razao_elepot * cot_dolar)
+                        sensibilidade_cache["Preco Bat [USD]"].append(Pb)
+                        sensibilidade_cache["Preco Bat Cor. Dolar [R$]"].append(Pb * cot_dolar)
+                        sensibilidade_cache["Preco UC [USD]"].append(Puc)
+                        sensibilidade_cache["Preco UC Cor. Dolar [R$]"].append(Puc * cot_dolar)
+                        sensibilidade_cache["C-rate"].append(T_xb)
+                        sensibilidade_cache["Np,b"].append(best_Np_b)
+                        sensibilidade_cache["Np,uc"].append(best_Np_uc)
+                        sensibilidade_cache["Volume Total [L]"].append(volume_total)
+                        sensibilidade_cache["Energia Total Bat. [kWh]"].append(energia_bat)
+                        sensibilidade_cache["Energia Total UC. [kWh]"].append(energia_sc)
+                        sensibilidade_cache["Energia Total [kWh]"].append(energia_total)
+                        sensibilidade_cache["Pth [kW]"].append(best_Pth)
+                        sensibilidade_cache["VPL [R$]"].append(vpl)
 
-    res.X = None
-    res.F = None
-    res.G = None
+                        res.X = None
+                        res.F = None
+                        res.G = None
 
 
 

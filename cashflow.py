@@ -19,7 +19,7 @@ class CashFlow:
         """
         meses = np.arange(len(self.fluxo_caixa))
         
-        plt.figure(figsize=(2*self.fig_width_cm, 1.5*self.fig_height_cm))
+        plt.figure(figsize=(self.fig_width_cm, self.fig_height_cm))
         
         # Barras para valores positivos (receitas) e negativos (despesas)
         receitas = np.where(self.fluxo_caixa > 0, self.fluxo_caixa, 0)
@@ -48,9 +48,9 @@ class CashFlow:
         
         # Adicionar valores nas barras
         for i, valor in enumerate(self.fluxo_caixa):
-            if valor != 0:
+            if valor < 0:
                 plt.text(i, valor + (0.1 if valor > 0 else -0.1), 
-                        f'{valor/1000:.0f}k', ha='center', va='bottom' if valor > 0 else 'top', size=8)
+                        f'{valor/1000:.0f}k', ha='center', va='bottom' if valor > 0 else 'top', size=18)
         
         plt.tight_layout()
         plt.show(block = False  )

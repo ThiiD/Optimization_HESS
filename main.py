@@ -138,14 +138,7 @@ class MyOutput(Output):
     def __init__(self, optimization_output):
         super().__init__()
         self.data = []
-        self.columns_def = ["n_gen", "n_evals", "n_nds", "eps"]
         self.last_ideal = None
-        self.columns = [
-            Column("n_gen", width=13),                                  # Número de gerações até determinado ponto
-            Column("n_evals", width=13),                                # Número de funções avaliadas até o momento
-            Column("n_nds", width=13),                                  # Número de soluções de pareto
-            Column("eps", width = 13)                                   # Mudança do indicador (ideal, nadir, f) ao longo das últimas gerações
-        ]     
         self.optimization_output = optimization_output
 
     def update(self, algorithm):
@@ -160,29 +153,46 @@ class MyOutput(Output):
         else:
             eps = float(np.linalg.norm(ideal - self.last_ideal))
 
+        # indicador baseado na mudança do ideal
+        if self.last_ideal is None:
+            indicator = "f"
+        else:
+            if eps == 0:
+                indicator = "f"
+            elif np.all(ideal <= self.last_ideal):
+                indicator = "ideal"
+            else:
+                indicator = "nadir"
+
         # atualiza memória
         self.last_ideal = ideal
 
         # número de soluções não dominadas
-        n_nds = len(algorithm.opt.get("F"))
+        n_nds = len(algorithm.opt)
 
-        # monta o dicionário para o display
+        # restrições
+        CV = algorithm.opt.get("CV")
+        cv_min = float(CV.min()) if CV is not None else None
+        cv_avg = float(CV.mean()) if CV is not None else None
+
+        # monta o dicionário completo
         row = {
             "n_gen": algorithm.n_gen,
             "n_evals": algorithm.evaluator.n_eval,
             "n_nds": n_nds,
-            "eps": eps
+            "cv_min": cv_min,
+            "cv_avg": cv_avg,
+            "eps": eps,
+            "indicator": indicator
         }
 
         # salva no histórico
         self.data.append(row)
 
-        # 🔥 ESSENCIAL: envia os valores para o terminal
+        # envia para o terminal
         self.notify(row)
 
-
     def finalize(self):
-        # 2. Write to Excel upon completion
         print(f"Simulação: {self.data}")
         df = pd.DataFrame(self.data)
         df.to_csv(self.optimization_output, index=False, sep=";")
@@ -370,7 +380,7 @@ class MyProblem(ElementwiseProblem):
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
 problem = MyProblem()
-arquivo = "AGREGADOR ANALYSIS.xlsx"
+arquivo = "CR-3112_28-09-24_AGGREGATED.xlsx"
 diretorio_figuras = "Figuras/" + arquivo.split(".")[0]
 os.makedirs(diretorio_figuras, exist_ok=True)
 data = "data/" + arquivo
