@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-dados = "AGREGADOR ANALYSIS.xlsx"
+dados = "UMAX_18-10-24.xlsx"
 dados_name = dados.split(".")[0]
 sheet = "Log"
 

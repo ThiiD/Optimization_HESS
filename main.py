@@ -69,11 +69,15 @@ potencia_de_limiar_max = 2000                                       # Potência 
 max_pth = round(potencia_de_limiar_max / step_pth)                  # Número discreto máximo de passos para a potência de limiar
 min_pth = 0                                                         # Número discreto mínimo de passos para a potência de limiar
 
-min_uc = 0                                                          # Número minimo de supercapacitores
-max_uc = 10                                                         # Número máximo de supercapacitores
+min_Nm_uc = 1                                                       # Número minimo de modulos de supercapacitor
+max_Nm_uc = 24                                                      # Número máximo de modulos de supercapacitor
+min_Np_uc = 0                                                       # Número minimo de supercapacitores em paralelo
+max_Np_uc = 15                                                      # Número máximo de supercapacitores em paralelo
 
-min_bat = 0                                                         # Número mínimo de baterias
-max_bat = 10                                                        # Número máximo de baterias
+min_Nm_b = 1                                                        # Número minimo de modulos de bateria em serie                                                  
+max_Nm_b = 24                                                       # Número maximo de modulos de bateria em serie
+min_Np_b = 0                                                        # Número mínimo de baterias em paralelo
+max_Np_b = 15                                                       # Número máximo de baterias em paralelo
 
 i_SoC_Bat = 20
 i_SoC_UC = 3
@@ -91,9 +95,9 @@ Wb = 1.060                                                          # Peso da ba
 Wuc = 0.460                                                         # Peso do supercapacitor em kg (Fonte: data_sources.xlsx)
 
 Ns_b = 16                                                           # Número de baterias em serie
-Nm_b = 24                                                           # Número de módulos de baterias
+# Nm_b = 10                                                           # Número de módulos de baterias
 Ns_uc = 16                                                          # Número de supercapacitores em serie
-Nm_uc = 20                                                          # Número de módulos de supercapacitores
+# Nm_uc = 20                                                          # Número de módulos de supercapacitores
 
 Cap_b = 40.0                                                        # Capacidade da bateria em Ah
 T_xb = 6                                                            # Multiplicador da capacidade da bateria
@@ -201,12 +205,12 @@ class MyOutput(Output):
 class MyProblem(ElementwiseProblem):
 
     def __init__(self):
-        super().__init__(n_var=3,                                           # Np_b, Np_uc e Pth
-                         n_obj=1,                                           # VPL
-                         n_ieq_constr=1,                                    # Restrição de volume para os elementos armazenadores
-                         xl=np.array([min_bat, min_uc, min_pth]),           # Mínimo de 1 para cada elemento armazenador e 0 para potencia (0 kW)
-                         xu=np.array([max_bat, max_uc, max_pth]),           # Máximo de 10 para elementos armazenados e 80 para potência (2000 kW)
-                         type_var=np.int64)                                 # Especificando que as variáveis são inteiros
+        super().__init__(n_var=5,                                                               # Nm_b, Np_b, Nm_uc, Np_uc e Pth
+                         n_obj=1,                                                               # VPL
+                         n_ieq_constr=1,                                                        # Restrição de volume para os elementos armazenadores
+                         xl=np.array([min_Nm_b, min_Np_b, min_Nm_uc, min_Np_uc, min_pth]),      # Mínimo de 1 para cada elemento armazenador e 0 para potencia (0 kW)
+                         xu=np.array([max_Nm_b, max_Np_b, max_Nm_uc, max_Np_uc, max_pth]),      # Máximo de 10 para elementos armazenados e 80 para potência (2000 kW)
+                         type_var=np.int64)                                                     # Especificando que as variáveis são inteiros
         self.simulation_cache = {}
         self._preco_diesel = preco_diesel
         self._cot_dolar = cot_dolar
@@ -245,9 +249,11 @@ class MyProblem(ElementwiseProblem):
         # sleep(10)
 
     def _evaluate(self, x, out, *args, **kwargs):
-        Np_b = int(round(x[0]))                                 # Número de baterias em paralelo
-        Np_uc = int(round(x[1]))                                # Número de supercapacitores em paralelo
-        Pth = step_pth * int(round(x[2]))                       # Variavel relativa a potencia
+        Nm_b = int(round(x[0]))                                 # Numero de modulos de baterias
+        Np_b = int(round(x[1]))                                 # Número de baterias em paralelo
+        Nm_uc = int(round(x[2]))                                # Número de modulos de supercapacitor
+        Np_uc = int(round(x[3]))                                # Número de supercapacitores em paralelo
+        Pth = step_pth * int(round(x[4]))                       # Variavel relativa a potencia
 
         # Cálculo do número total de componentes
         total_baterias = Np_b * Nm_b * Ns_b
@@ -262,7 +268,7 @@ class MyProblem(ElementwiseProblem):
         custo_inicial = (total_baterias * self._Pb * self._cot_dolar) + (total_supercaps * self._Puc * self._cot_dolar) + (total_elepot * self._preco_razao_elepot * self._cot_dolar)
 
         # Simulação para calcular energia rejeitada
-        cache_key = (Np_b, Np_uc, Pth)
+        cache_key = (Nm_b, Np_b, Nm_uc, Np_uc, Pth)
         if cache_key not in self.simulation_cache:
             sim = Simulation()
             sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.2, SoC=i_SoC_Bat, T_m = self._T_xb)
@@ -285,7 +291,7 @@ class MyProblem(ElementwiseProblem):
 
         # Energia absorvida por ciclo (Wh)
         energia_absorvida_ciclo = energia_absorvida
-        print(f"Energia absorvida por ciclo (Np_b: {Np_b}, Np_uc: {Np_uc}, Pth: {Pth}): {energia_absorvida_ciclo} Wh")
+        print(f"Energia absorvida por ciclo (Nm_b: {Nm_b}, Np_b: {Np_b}, Nm_uc: {Nm_uc} Np_uc: {Np_uc}, Pth: {Pth}): {energia_absorvida_ciclo} Wh")
         # Número de ciclos por dia e por mês
         horas_operacao_dia = 24 * taxa_disponibilidade
         ciclos_por_dia = horas_operacao_dia / self._duracao_ciclo_operacao_hora
@@ -354,7 +360,7 @@ class MyProblem(ElementwiseProblem):
         for i, fc in enumerate(fluxo_caixa):
             vpl += fc / ((1 + taxa_desconto_mensal) ** i)
 
-        print(f"VPL (Np_b: {Np_b}, Np_uc: {Np_uc}, Pth: {Pth}): {vpl}")
+        print(f"VPL (Nm_b: {Nm_b}, Np_b: {Np_b}, Nm_uc: {Nm_uc} Np_uc: {Np_uc}, Pth: {Pth}): {vpl}")
         print(f'Volume Total: {g1}')
         print(f'---------------------------------------------------------')
 
@@ -364,7 +370,9 @@ class MyProblem(ElementwiseProblem):
         
         # Armazenar o fluxo de caixa se for a melhor solução até agora
         if not hasattr(self, 'melhor_vpl') or (vpl > self.melhor_vpl and G < 0):
+            self.Nm_b = Nm_b
             self.Np_b = Np_b
+            self.Nm_uc = Nm_uc
             self.Np_uc = Np_uc
             self.Pth = Pth
             self.melhor_vpl = vpl
@@ -403,7 +411,7 @@ algorithm = NSGA2(
 
 from pymoo.termination import get_termination
 
-termination = get_termination("n_gen", 10)
+termination = get_termination("n_gen", 30)
 
 from pymoo.optimize import minimize
 
@@ -599,28 +607,36 @@ print("------------------------")
 for i in range(min(10, len(X))):  # Mostrar as 10 melhores soluções
     print(f"\nSolução {i+1}:")
     try:
-        print(f"Número de baterias em paralelo: {int(round(X[i,0]))}")
-        print(f"Número de supercapacitores em paralelo: {int(round(X[i,1]))}")
-        print(f'Volume ocupado: {(G[i,0] + volume_maximo):,.2f}')
-        print(f"Valor limiar de potência: {step_pth * int(round(X[i,2]))}")
+        print(f"Número de modulos de baterias: {int(round(X[i,0]))}")
+        print(f"Número de baterias em paralelo: {int(round(X[i,1]))}")
+        print(f"Número de modulos de supercapacitores: {int(round(X[i,2]))}")
+        print(f"Número de supercapacitores em paralelo: {int(round(X[i,3]))}")
+        print(f"Valor limiar de potência: {step_pth * int(round(X[i,4]))}")
+        print(f'Volume ocupado: {(G[i,0] + volume_maximo):,.2f}')        
         print(f"VPL (Valor Presente Líquido): R$ {(-F[i,0]):,.2f}")
         with open(diretorio_figuras + "/" + f"{arquivo.split(".")[0]}_outputValues.txt", "w") as text_file:
-            text_file.write(f"Número de baterias em paralelo: {int(round(X[i,0]))}\n")
-            text_file.write(f"Número de supercapacitores em paralelo: {int(round(X[i,1]))}\n")
-            text_file.write(f"Volume Ocupado: {(G[i,0] + volume_maximo):,.2f} L \n")
-            text_file.write(f"Valor limiar de potência: {step_pth * int(round(X[i,2]))} kW\n")
+            text_file.write(f"Número de modulos de baterias: {int(round(X[i,0]))}")
+            text_file.write(f"Número de baterias em paralelo: {int(round(X[i,1]))}\n")
+            text_file.write(f"Número de modulos de supercapacitores: {int(round(X[i,2]))}")
+            text_file.write(f"Número de supercapacitores em paralelo: {int(round(X[i,3]))}\n")
+            text_file.write(f"Valor limiar de potência: {step_pth * int(round(X[i,4]))} kW\n")
+            text_file.write(f"Volume Ocupado: {(G[i,0] + volume_maximo):,.2f} L \n")            
             text_file.write(f"VPL (Valor Presente Líquido): R$ {(-F[i,0]):,.2f}\n")
     except:
-        print(f"Número de baterias em paralelo: {int(round(X[0]))}")
-        print(f"Número de supercapacitores em paralelo: {int(round(X[1]))}")
-        print(f'Volume ocupado: {(G[0] + volume_maximo):,.2f}')
-        print(f"Valor limiar de potência: {step_pth * int(round(X[2]))}")
+        print(f"Número de modulos de baterias: {int(round(X[0]))}")
+        print(f"Número de baterias em paralelo: {int(round(X[1]))}")
+        print(f"Número de modulos de supercapacitores: {int(round(X[2]))}")
+        print(f"Número de supercapacitores em paralelo: {int(round(X[3]))}")
+        print(f"Valor limiar de potência: {step_pth * int(round(X[4]))}")
+        print(f'Volume ocupado: {(G[0] + volume_maximo):,.2f}')        
         print(f"VPL (Valor Presente Líquido): R$ {(-F[0]):,.2f}")
         with open(diretorio_figuras + "/" + f"{arquivo.split(".")[0]}_outputValues.txt", "w") as text_file:
-            text_file.write(f"Número de baterias em paralelo: {int(round(X[0]))}\n")
-            text_file.write(f"Número de supercapacitores em paralelo: {int(round(X[1]))}\n")
-            text_file.write(f"Volume máximo: {(G[0] + volume_maximo):,.2f} L")
-            text_file.write(f"Valor limiar de potência: {step_pth * int(round(X[2]))} kW\n")
+            text_file.write(f"Número de modulos de baterias: {int(round(X[0]))}\n")
+            text_file.write(f"Número de baterias em paralelo: {int(round(X[1]))}\n")
+            text_file.write(f"Número de modulos de supercapacitores: {int(round(X[2]))}")
+            text_file.write(f"Número de supercapacitores em paralelo: {int(round(X[3]))}\n")
+            text_file.write(f"Valor limiar de potência: {step_pth * int(round(X[4]))} kW\n")
+            text_file.write(f"Volume máximo: {(G[0] + volume_maximo):,.2f} L")            
             text_file.write(f"VPL (Valor Presente Líquido): R$ {(-F[0]):,.2f}")
             
 
@@ -629,20 +645,24 @@ for i in range(min(10, len(X))):  # Mostrar as 10 melhores soluções
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 try:
     idx_best = np.argmin(F[:, 0])  # Menor valor negativo de F => maior VPL
-    best_Np_b = int(round(X[idx_best, 0]))
-    best_Np_uc = int(round(X[idx_best, 1]))
-    best_Pth = step_pth * int(round(X[idx_best, 2]))
+    best_Nm_b = int(round(X[idx_best, 0]))
+    best_Np_b = int(round(X[idx_best, 1]))
+    best_Nm_uc = int(round(X[idx_best, 2]))
+    best_Np_uc = int(round(X[idx_best, 3]))
+    best_Pth = step_pth * int(round(X[idx_best, 4]))
 except:
     idx_best = np.argmin(F[0])  # Menor valor negativo de F => maior VPL
-    best_Np_b = int(round(X[0]))
-    best_Np_uc = int(round(X[1]))
-    best_Pth = step_pth * int(round(X[2]))
+    best_Nm_b = int(round(X[0]))
+    best_Np_b = int(round(X[1]))
+    best_Nm_uc = int(round(X[2]))
+    best_Np_uc = int(round(X[3]))
+    best_Pth = step_pth * int(round(X[4]))
 
 
 # Rodar a simulação para a melhor solução
 sim = Simulation()
-sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=best_Np_b, Nm=Nm_b, Vnom=3.2, SoC=50, T_m=T_xb)
-sim.setParam_UC(C=3400, Cap_uc=Cap_uc, Ns=Ns_uc, Np=best_Np_uc, Nm=Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
+sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=best_Np_b, Nm=best_Nm_b, Vnom=3.2, SoC=50, T_m=T_xb)
+sim.setParam_UC(C=3400, Cap_uc=Cap_uc, Ns=Ns_uc, Np=best_Np_uc, Nm=best_Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
 sim.simulate(data, sheet, best_Pth)
 
 # -----------------------------------------------------------------------------------------------------------
