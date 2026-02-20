@@ -411,7 +411,7 @@ algorithm = NSGA2(
 
 from pymoo.termination import get_termination
 
-termination = get_termination("n_gen", 30)
+termination = get_termination("n_gen", 20)
 
 from pymoo.optimize import minimize
 
@@ -615,9 +615,9 @@ for i in range(min(10, len(X))):  # Mostrar as 10 melhores soluções
         print(f'Volume ocupado: {(G[i,0] + volume_maximo):,.2f}')        
         print(f"VPL (Valor Presente Líquido): R$ {(-F[i,0]):,.2f}")
         with open(diretorio_figuras + "/" + f"{arquivo.split(".")[0]}_outputValues.txt", "w") as text_file:
-            text_file.write(f"Número de modulos de baterias: {int(round(X[i,0]))}")
+            text_file.write(f"Número de modulos de baterias: {int(round(X[i,0]))}\n")
             text_file.write(f"Número de baterias em paralelo: {int(round(X[i,1]))}\n")
-            text_file.write(f"Número de modulos de supercapacitores: {int(round(X[i,2]))}")
+            text_file.write(f"Número de modulos de supercapacitores: {int(round(X[i,2]))}\n")
             text_file.write(f"Número de supercapacitores em paralelo: {int(round(X[i,3]))}\n")
             text_file.write(f"Valor limiar de potência: {step_pth * int(round(X[i,4]))} kW\n")
             text_file.write(f"Volume Ocupado: {(G[i,0] + volume_maximo):,.2f} L \n")            
@@ -633,11 +633,11 @@ for i in range(min(10, len(X))):  # Mostrar as 10 melhores soluções
         with open(diretorio_figuras + "/" + f"{arquivo.split(".")[0]}_outputValues.txt", "w") as text_file:
             text_file.write(f"Número de modulos de baterias: {int(round(X[0]))}\n")
             text_file.write(f"Número de baterias em paralelo: {int(round(X[1]))}\n")
-            text_file.write(f"Número de modulos de supercapacitores: {int(round(X[2]))}")
+            text_file.write(f"Número de modulos de supercapacitores: {int(round(X[2]))}\n")
             text_file.write(f"Número de supercapacitores em paralelo: {int(round(X[3]))}\n")
             text_file.write(f"Valor limiar de potência: {step_pth * int(round(X[4]))} kW\n")
-            text_file.write(f"Volume máximo: {(G[0] + volume_maximo):,.2f} L")            
-            text_file.write(f"VPL (Valor Presente Líquido): R$ {(-F[0]):,.2f}")
+            text_file.write(f"Volume máximo: {(G[0] + volume_maximo):,.2f} L\n")            
+            text_file.write(f"VPL (Valor Presente Líquido): R$ {(-F[0]):,.2f}\n")
             
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------

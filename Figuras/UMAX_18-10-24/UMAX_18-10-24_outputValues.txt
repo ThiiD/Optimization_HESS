@@ -1,4 +1,7 @@
+Número de modulos de baterias: 14
 Número de baterias em paralelo: 10
-Número de supercapacitores em paralelo: 1
-Volume máximo: 1,112.32 LValor limiar de potência: 1450 kW
-VPL (Valor Presente Líquido): R$ 7,217,417.84
+Número de modulos de supercapacitores: 1
+Número de supercapacitores em paralelo: 10
+Valor limiar de potência: 1650 kW
+Volume Ocupado: 1,414.40 L 
+VPL (Valor Presente Líquido): R$ 8,172,335.25

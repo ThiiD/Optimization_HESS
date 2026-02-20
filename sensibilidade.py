@@ -110,7 +110,7 @@ algorithm = NSGA2(
 )
 
 
-termination = get_termination("n_gen", 10)
+termination = get_termination("n_gen", 20)
 
 sensibilidade_cache = {"Preco Diesel [R$]"              :   [],
                        "Cotacao Dolar"                  :   [],
@@ -121,7 +121,9 @@ sensibilidade_cache = {"Preco Diesel [R$]"              :   [],
                        "Preco UC [USD]"                 :   [],
                        "Preco UC Cor. Dolar [R$]"       :   [],
                        "C-rate"                         :   [],
+                       "Nm,b"                           :   [],
                        "Np,b"                           :   [],
+                       "Nm,uc"                          :   [],
                        "Np,uc"                          :   [],
                        "Volume Total [L]"               :   [],
                        "Energia Total Bat. [kWh]"       :   [],
@@ -181,21 +183,25 @@ for preco_diesel in vetor_preco_diesel:
 
                         try:
                             idx_best = np.argmin(F[:, 0])  # Menor valor negativo de F => maior VPL
-                            best_Np_b = int(round(X[idx_best, 0]))
-                            best_Np_uc = int(round(X[idx_best, 1]))
-                            best_Pth = step_pth * int(round(X[idx_best, 2]))
+                            best_Nm_b = int(round(X[idx_best, 0]))
+                            best_Np_b = int(round(X[idx_best, 1]))
+                            best_Nm_uc = int(round(X[idx_best, 2]))
+                            best_Np_uc = int(round(X[idx_best, 3]))
+                            best_Pth = step_pth * int(round(X[idx_best, 4]))
                         except:
                             idx_best = np.argmin(F[0])  # Menor valor negativo de F => maior VPL
-                            best_Np_b = int(round(X[0]))
-                            best_Np_uc = int(round(X[1]))
-                            best_Pth = step_pth * int(round(X[2]))
+                            best_Nm_b = int(round(X[0]))
+                            best_Np_b = int(round(X[1]))
+                            best_Nm_uc = int(round(X[2]))
+                            best_Np_uc = int(round(X[3]))
+                            best_Pth = step_pth * int(round(X[4]))
 
                         vpl = 0
                         for i, fc in enumerate(problem.melhor_fluxo_caixa):
                             vpl += fc / ((1 + taxa_desconto_mensal) ** i)
                         
-                        total_bat = 16 * 24 * best_Np_b
-                        total_uc  = 16 * 20 * best_Np_uc
+                        total_bat = 16 * best_Nm_b * best_Np_b
+                        total_uc  = 16 * best_Nm_uc * best_Np_uc
                         energia_bat = 0.128 * total_bat
                         energia_sc = 0.0039 * total_uc
                         volume_total = (0.596 * total_bat) + (0.496 * total_uc)
@@ -209,7 +215,9 @@ for preco_diesel in vetor_preco_diesel:
                         sensibilidade_cache["Preco UC [USD]"].append(Puc)
                         sensibilidade_cache["Preco UC Cor. Dolar [R$]"].append(Puc * cot_dolar)
                         sensibilidade_cache["C-rate"].append(T_xb)
+                        sensibilidade_cache["Nm,b"].append(best_Nm_b)
                         sensibilidade_cache["Np,b"].append(best_Np_b)
+                        sensibilidade_cache["Nm,uc"].append(best_Nm_uc)
                         sensibilidade_cache["Np,uc"].append(best_Np_uc)
                         sensibilidade_cache["Volume Total [L]"].append(volume_total)
                         sensibilidade_cache["Energia Total Bat. [kWh]"].append(energia_bat)
@@ -225,7 +233,7 @@ for preco_diesel in vetor_preco_diesel:
 
 
 
-columns_df = ["Preco Diesel [R$]", "Cotacao Dolar", "Preco Razao Elepot [USD]", "Preco R.E. Cor. Dolar [R$]",  "Preco Bat [USD]", "Preco Bat Cor. Dolar [R$]", "Preco UC [USD]", "Preco UC Cor. Dolar [R$]", "C-rate", "Np,b", "Np,uc", "Volume Total [L]", "Energia Total Bat. [kWh]", "Energia Total UC. [kWh]", "Energia Total [kWh]", "Pth [kW]", "VPL [R$]"]
+columns_df = ["Preco Diesel [R$]", "Cotacao Dolar", "Preco Razao Elepot [USD]", "Preco R.E. Cor. Dolar [R$]",  "Preco Bat [USD]", "Preco Bat Cor. Dolar [R$]", "Preco UC [USD]", "Preco UC Cor. Dolar [R$]", "C-rate", "Nm,b", "Np,b","Nm,uc", "Np,uc", "Volume Total [L]", "Energia Total Bat. [kWh]", "Energia Total UC. [kWh]", "Energia Total [kWh]", "Pth [kW]", "VPL [R$]"]
 df = pd.DataFrame(sensibilidade_cache, columns = columns_df)
 df.to_excel(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_sensibilidade.xlsx", columns=columns_df)
 
