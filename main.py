@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import os
 from time import sleep
 import pandas as pd
+from math import floor
 
 from pymoo.core.problem import ElementwiseProblem
 from pymoo.util.display.output import Output
@@ -63,19 +64,28 @@ taxa_desconto_anual = 0.10                                          # Taxa minim
 
 taxa_desconto_mensal = (1 + taxa_desconto_anual) ** (1/12) - 1      # TMA mensal calculada a partir da TMA anual
 
+# Caracteristicas bateria
+vb_nom = 3.2
+vb_max = 3.65
+
+vuc_max = 3
+
 # Definições relativas a otmização
 step_pth = 25                                                       # Step entre as potências de limiares simuladas
 potencia_de_limiar_max = 2000                                       # Potência de limiar máxima
 max_pth = round(potencia_de_limiar_max / step_pth)                  # Número discreto máximo de passos para a potência de limiar
 min_pth = 0                                                         # Número discreto mínimo de passos para a potência de limiar
 
+Ns_b = 16                                                           # Número de baterias em serie
+Ns_uc = 16                                                          # Número de supercapacitores em serie
+
 min_Nm_uc = 1                                                       # Número minimo de modulos de supercapacitor
-max_Nm_uc = 24                                                      # Número máximo de modulos de supercapacitor
+max_Nm_uc = floor(1500 / (Ns_uc * vuc_max))                         # Número máximo de modulos de supercapacitor (Não extrapolar 1500 V)
 min_Np_uc = 0                                                       # Número minimo de supercapacitores em paralelo
 max_Np_uc = 15                                                      # Número máximo de supercapacitores em paralelo
 
 min_Nm_b = 1                                                        # Número minimo de modulos de bateria em serie                                                  
-max_Nm_b = 24                                                       # Número maximo de modulos de bateria em serie
+max_Nm_b = floor(1500 / (Ns_b * vb_max))                            # Número maximo de modulos de bateria em serie (Não extrapolar 1500 V)
 min_Np_b = 0                                                        # Número mínimo de baterias em paralelo
 max_Np_b = 15                                                       # Número máximo de baterias em paralelo
 
@@ -94,10 +104,7 @@ volume_maximo = (np.pi * (26/2)**2 * 65 * 1e-6) * 41000             # Volume má
 Wb = 1.060                                                          # Peso da bateria em kg (Fonte: data_sources.xlsx)
 Wuc = 0.460                                                         # Peso do supercapacitor em kg (Fonte: data_sources.xlsx)
 
-Ns_b = 16                                                           # Número de baterias em serie
-# Nm_b = 10                                                           # Número de módulos de baterias
-Ns_uc = 16                                                          # Número de supercapacitores em serie
-# Nm_uc = 20                                                          # Número de módulos de supercapacitores
+
 
 Cap_b = 40.0                                                        # Capacidade da bateria em Ah
 T_xb = 6                                                            # Multiplicador da capacidade da bateria
@@ -388,7 +395,7 @@ class MyProblem(ElementwiseProblem):
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
 problem = MyProblem()
-arquivo = "CR-3112_28-09-24_AGGREGATED.xlsx"
+arquivo = "UMAX_18-10-24.xlsx"
 diretorio_figuras = "Figuras/" + arquivo.split(".")[0]
 os.makedirs(diretorio_figuras, exist_ok=True)
 data = "data/" + arquivo
@@ -411,7 +418,7 @@ algorithm = NSGA2(
 
 from pymoo.termination import get_termination
 
-termination = get_termination("n_gen", 20)
+termination = get_termination("n_gen", 30)
 
 from pymoo.optimize import minimize
 

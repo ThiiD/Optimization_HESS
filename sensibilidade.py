@@ -93,8 +93,9 @@ Cap_uc = 280.0                                                      # Capacidade
 T_xuc = 8                                                           # Multiplicador da capacidade do supercapacitor
 vetor_T_xuc = variacao * T_xuc                                      # Vetor de sensibilidade da capacidade do supercapacitor
 
-arquivo = "UMAX_18-10-24.xlsx"
+arquivo = "AGREGADOR ANALYSIS.xlsx"
 diretorio_figuras = "Figuras/" + arquivo.split(".")[0]
+arquivo_excel = diretorio_figuras + "/" f"{arquivo.split(".")[0]}_sensibilidade.xlsx"
 os.makedirs(diretorio_figuras, exist_ok=True)
 data = "data/" + arquivo
 sheet = "Log"
@@ -110,28 +111,7 @@ algorithm = NSGA2(
 )
 
 
-termination = get_termination("n_gen", 20)
-
-sensibilidade_cache = {"Preco Diesel [R$]"              :   [],
-                       "Cotacao Dolar"                  :   [],
-                       "Preco Razao Elepot [USD]"       :   [],
-                       "Preco R.E. Cor. Dolar [R$]"     :   [],
-                       "Preco Bat [USD]"                :   [],
-                       "Preco Bat Cor. Dolar [R$]"      :   [],
-                       "Preco UC [USD]"                 :   [],
-                       "Preco UC Cor. Dolar [R$]"       :   [],
-                       "C-rate"                         :   [],
-                       "Nm,b"                           :   [],
-                       "Np,b"                           :   [],
-                       "Nm,uc"                          :   [],
-                       "Np,uc"                          :   [],
-                       "Volume Total [L]"               :   [],
-                       "Energia Total Bat. [kWh]"       :   [],
-                       "Energia Total UC. [kWh]"        :   [],
-                       "Energia Total [kWh]"            :   [],
-                       "Pth [kW]"                       :   [],
-                       "VPL [R$]"                       :   []}
-
+termination = get_termination("n_gen", 15)
 
 print(f"Preço do diesel: {preco_diesel} R$    ;       Variação: {vetor_preco_diesel}")
 print(f"Cotação do dolar: {cot_dolar} R$/USD  ;       Variação: {vetor_cot_dolar}")
@@ -139,6 +119,17 @@ print(f"Eletronica de potencia: {preco_razao_elepot} USD/kW    ;       Variaçã
 print(f"Preço bateria: {Pb_usd} USD   ;       Variação: {vetor_Puc_usd}")
 print(f"Preço supercapacitor: {Puc_usd} USD   ;       Variação: {vetor_Puc_usd}")
 print(f"C-rate da bateria: {T_xb} C   ;       Variação: {vetor_T_xb}")
+
+
+columns_df = ["Preco Diesel [R$]", "Cotacao Dolar", "Preco Razao Elepot [USD]", "Preco R.E. Cor. Dolar [R$]",  "Preco Bat [USD]", "Preco Bat Cor. Dolar [R$]", "Preco UC [USD]", "Preco UC Cor. Dolar [R$]", "C-rate", "Nm,b", "Np,b","Nm,uc", "Np,uc", "Volume Total [L]", "Energia Total Bat. [kWh]", "Energia Total UC. [kWh]", "Energia Total [kWh]", "Pth [kW]", "VPL [R$]"]
+# Verifica se o arquivo existe
+if not os.path.exists(arquivo_excel):
+    print("Arquivo não existe. Criando com header...")
+    df = pd.DataFrame(columns=columns_df)
+    df.to_excel(arquivo_excel, index=False)
+else:
+    print("Arquivo já existe. Carregando...")
+    df = pd.read_excel(arquivo_excel)
 
 
 
@@ -157,6 +148,46 @@ for preco_diesel in vetor_preco_diesel:
                                             "Preco Bat"             :   Pb_usd,
                                             "Preco UC"              :   Puc_usd,
                                             "C-rate"                :   T_xb}
+                        
+                        sensibilidade_cache = {"Preco Diesel [R$]"              :   None,
+                                               "Cotacao Dolar"                  :   None,
+                                               "Preco Razao Elepot [USD]"       :   None,
+                                               "Preco R.E. Cor. Dolar [R$]"     :   None,
+                                               "Preco Bat [USD]"                :   None,
+                                               "Preco Bat Cor. Dolar [R$]"      :   None,
+                                               "Preco UC [USD]"                 :   None,
+                                               "Preco UC Cor. Dolar [R$]"       :   None,
+                                               "C-rate"                         :   None,
+                                               "Nm,b"                           :   None,
+                                               "Np,b"                           :   None,
+                                               "Nm,uc"                          :   None,
+                                               "Np,uc"                          :   None,
+                                               "Volume Total [L]"               :   None,
+                                               "Energia Total Bat. [kWh]"       :   None,
+                                               "Energia Total UC. [kWh]"        :   None,
+                                               "Energia Total [kWh]"            :   None,
+                                               "Pth [kW]"                       :   None,
+                                               "VPL [R$]"                       :   None}
+                        
+                        filtro = (
+                            (df["Preco Diesel [R$]"] == preco_diesel) &
+                            (df["Cotacao Dolar"] == cot_dolar) &
+                            (df["Preco Razao Elepot [USD]"] == preco_razao_elepot) &
+                            (df["Preco Bat [USD]"] == Pb_usd) &
+                            (df["Preco UC [USD]"] == Puc_usd) &
+                            (df["C-rate"] == T_xb)
+                        )
+
+                        
+                        
+                        if filtro.any():
+                            print("Já existe, pulando:", preco_diesel, cot_dolar, preco_razao_elepot, Pb_usd, Puc_usd, T_xb)
+                            continue
+
+
+                        print("Novo caso, calculando:", sensibilidade_input)
+
+
                         problem = MyProblem()
                         problem.setData(data, sheet)
                         problem.setParams(sensibilidade_input)
@@ -206,41 +237,45 @@ for preco_diesel in vetor_preco_diesel:
                         energia_sc = 0.0039 * total_uc
                         volume_total = (0.596 * total_bat) + (0.496 * total_uc)
                         energia_total = energia_bat + energia_sc
-                        sensibilidade_cache["Preco Diesel [R$]"].append(preco_diesel)
-                        sensibilidade_cache["Cotacao Dolar"].append(cot_dolar)
-                        sensibilidade_cache["Preco Razao Elepot [USD]"].append(preco_razao_elepot)
-                        sensibilidade_cache["Preco R.E. Cor. Dolar [R$]"].append(preco_razao_elepot * cot_dolar)
-                        sensibilidade_cache["Preco Bat [USD]"].append(Pb)
-                        sensibilidade_cache["Preco Bat Cor. Dolar [R$]"].append(Pb * cot_dolar)
-                        sensibilidade_cache["Preco UC [USD]"].append(Puc)
-                        sensibilidade_cache["Preco UC Cor. Dolar [R$]"].append(Puc * cot_dolar)
-                        sensibilidade_cache["C-rate"].append(T_xb)
-                        sensibilidade_cache["Nm,b"].append(best_Nm_b)
-                        sensibilidade_cache["Np,b"].append(best_Np_b)
-                        sensibilidade_cache["Nm,uc"].append(best_Nm_uc)
-                        sensibilidade_cache["Np,uc"].append(best_Np_uc)
-                        sensibilidade_cache["Volume Total [L]"].append(volume_total)
-                        sensibilidade_cache["Energia Total Bat. [kWh]"].append(energia_bat)
-                        sensibilidade_cache["Energia Total UC. [kWh]"].append(energia_sc)
-                        sensibilidade_cache["Energia Total [kWh]"].append(energia_total)
-                        sensibilidade_cache["Pth [kW]"].append(best_Pth)
-                        sensibilidade_cache["VPL [R$]"].append(vpl)
+                        sensibilidade_cache["Preco Diesel [R$]"] = preco_diesel
+                        sensibilidade_cache["Cotacao Dolar"] = cot_dolar
+                        sensibilidade_cache["Preco Razao Elepot [USD]"] = preco_razao_elepot
+                        sensibilidade_cache["Preco R.E. Cor. Dolar [R$]"] = preco_razao_elepot * cot_dolar
+                        sensibilidade_cache["Preco Bat [USD]"] = Pb_usd
+                        sensibilidade_cache["Preco Bat Cor. Dolar [R$]"] = Pb_usd * cot_dolar
+                        sensibilidade_cache["Preco UC [USD]"] = Puc_usd
+                        sensibilidade_cache["Preco UC Cor. Dolar [R$]"] = Puc_usd * cot_dolar
+                        sensibilidade_cache["C-rate"] = T_xb
+                        sensibilidade_cache["Nm,b"] = best_Nm_b
+                        sensibilidade_cache["Np,b"] = best_Np_b
+                        sensibilidade_cache["Nm,uc"] = best_Nm_uc
+                        sensibilidade_cache["Np,uc"] = best_Np_uc
+                        sensibilidade_cache["Volume Total [L]"] = volume_total
+                        sensibilidade_cache["Energia Total Bat. [kWh]"] = energia_bat
+                        sensibilidade_cache["Energia Total UC. [kWh]"] = energia_sc
+                        sensibilidade_cache["Energia Total [kWh]"] = energia_total
+                        sensibilidade_cache["Pth [kW]"] = best_Pth
+                        sensibilidade_cache["VPL [R$]"] = vpl
 
                         res.X = None
                         res.F = None
                         res.G = None
 
+                        df = pd.concat([df, pd.DataFrame([sensibilidade_cache])], ignore_index=True)
+                        df.to_excel(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_sensibilidade.xlsx", columns=columns_df)
 
 
 
-columns_df = ["Preco Diesel [R$]", "Cotacao Dolar", "Preco Razao Elepot [USD]", "Preco R.E. Cor. Dolar [R$]",  "Preco Bat [USD]", "Preco Bat Cor. Dolar [R$]", "Preco UC [USD]", "Preco UC Cor. Dolar [R$]", "C-rate", "Nm,b", "Np,b","Nm,uc", "Np,uc", "Volume Total [L]", "Energia Total Bat. [kWh]", "Energia Total UC. [kWh]", "Energia Total [kWh]", "Pth [kW]", "VPL [R$]"]
-df = pd.DataFrame(sensibilidade_cache, columns = columns_df)
-df.to_excel(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_sensibilidade.xlsx", columns=columns_df)
 
-print(df)
 
-try:
-    print(f'Arquivo: {arquivo}')
-except:
-    pass
+
+# df = pd.DataFrame(sensibilidade_cache, columns = columns_df)
+# df.to_excel(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_sensibilidade.xlsx", columns=columns_df)
+
+# print(df)
+
+# try:
+#     print(f'Arquivo: {arquivo}')
+# except:
+#     pass
     
