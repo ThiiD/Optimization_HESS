@@ -80,12 +80,12 @@ Ns_b = 16                                                           # Número de
 Ns_uc = 16                                                          # Número de supercapacitores em serie
 
 min_Nm_uc = 1                                                       # Número minimo de modulos de supercapacitor
-max_Nm_uc = floor(1500 / (Ns_uc * vuc_max))                         # Número máximo de modulos de supercapacitor (Não extrapolar 1500 V)
+max_Nm_uc = 25                                                      # Número máximo de modulos de supercapacitor (Não extrapolar 1500 V)
 min_Np_uc = 0                                                       # Número minimo de supercapacitores em paralelo
 max_Np_uc = 15                                                      # Número máximo de supercapacitores em paralelo
 
 min_Nm_b = 1                                                        # Número minimo de modulos de bateria em serie                                                  
-max_Nm_b = floor(1500 / (Ns_b * vb_max))                            # Número maximo de modulos de bateria em serie (Não extrapolar 1500 V)
+max_Nm_b = 25                                                       # Número maximo de modulos de bateria em serie (Não extrapolar 1500 V)
 min_Np_b = 0                                                        # Número mínimo de baterias em paralelo
 max_Np_b = 15                                                       # Número máximo de baterias em paralelo
 
@@ -395,7 +395,7 @@ class MyProblem(ElementwiseProblem):
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
 problem = MyProblem()
-arquivo = "UMAX_18-10-24.xlsx"
+arquivo = "AGREGADOR ANALYSIS.xlsx"
 diretorio_figuras = "Figuras/" + arquivo.split(".")[0]
 os.makedirs(diretorio_figuras, exist_ok=True)
 data = "data/" + arquivo
@@ -411,14 +411,14 @@ algorithm = NSGA2(
     pop_size=20,
     n_offsprings=20,
     sampling=IntegerRandomSampling(),
-    crossover=SBX(prob=0.9, eta=15),
-    mutation=PM(eta=15, prob=0.2),
+    crossover=SBX(prob=0.8, eta=15),
+    mutation=PM(eta=15, prob=0.3),
     eliminate_duplicates=True
 )
 
 from pymoo.termination import get_termination
 
-termination = get_termination("n_gen", 30)
+termination = get_termination("n_gen", 60)
 
 from pymoo.optimize import minimize
 
