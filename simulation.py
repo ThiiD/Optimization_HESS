@@ -190,6 +190,8 @@ class Simulation():
             SoC_uc, v_banco_uc, p_uc_reject_2, i_uc = self._uc.updateEnergy(i_uc, 1)
             p_uc_reject = p_uc_reject_1 + p_uc_reject_2
 
+            self.fluxUC2Bat(i_bat, SoC, v_banco_bat, i_uc, SoC_uc, v_banco_uc)
+
             if self._uc_params["Np"] == 0:
                 p_bat_reject = p_bat_reject + p_uc_reject
                 p_uc_reject = 0
@@ -218,6 +220,25 @@ class Simulation():
         # Plota resultados
         # print(self._SoC_UC)                                     # APAGAR DEPOIS
         # self.plot_results(data["Time"])
+
+    def fluxUC2Bat(self, i_bat : float, soc_b : float, i_uc : float, soc_uc : float) -> (float | float):
+        """
+        Método para descarregar a energia do supercapacitor na bateria, deixando-o sempre a espera para absorver pícos de potencia.
+        :param float i_bat: Corrente da bateria pós determinado fluxo de potência
+        :param float soc_b: Estado de carga na bateria pós determinado fluxo de potência
+        :param float i_uc: Corrente no supercapacitor pós determinado fluxo de potência
+        :param float soc_uc: Estado de carga do supercapacitor pós determinado fluxo de potência
+        """
+        self.dt = 1                                                             # Tempo de discretização do problema
+        P_d = (self._v_banco_bat * 40 * self._batt_params["Np"])                # Potencia que se deseja transferir do banco de Uc pro bando cde bateria
+        E_d = P_d / self.dt
+        E_bat = self._batt.verificaPotencia(E_d)
+        E_uc = self._uc.verificaPotencia(E_d)
+        fluxo = min([E_bat, E_uc])
+        
+
+
+
 
     def simulate_custom_powers(self, powers, threshold=1000):
         """Executa simulação usando um vetor de potência diretamente como entrada

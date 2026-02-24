@@ -171,3 +171,13 @@ class Uc():
         if C_rate <= 0:
             raise ValueError("A taxa C deve ser positiva.")
         self._C_rate = C_rate
+
+
+
+    def verificaPotencia(self, Ed : float, dt : float) -> (float):
+         """
+        Método para verificar se o banco consegue absorver/fornecer energia
+        :param float E_d: Energia que se deseja absorver/fornecer
+        :param float dt: Tempo em segundos para se absorver a energia
+        return power: potencia máxima que pode ser gerenciada pelo 
+        """

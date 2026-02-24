@@ -79,15 +79,15 @@ min_pth = 0                                                         # Número di
 Ns_b = 16                                                           # Número de baterias em serie
 Ns_uc = 16                                                          # Número de supercapacitores em serie
 
-min_Nm_uc = 1                                                       # Número minimo de modulos de supercapacitor
-max_Nm_uc = 25                                                      # Número máximo de modulos de supercapacitor (Não extrapolar 1500 V)
+min_Nm_uc = 11                                                      # Número minimo de modulos de supercapacitor
+max_Nm_uc = 31                                                      # Número máximo de modulos de supercapacitor (Não extrapolar 1500 V)
 min_Np_uc = 0                                                       # Número minimo de supercapacitores em paralelo
-max_Np_uc = 15                                                      # Número máximo de supercapacitores em paralelo
+max_Np_uc = 7                                                       # Número máximo de supercapacitores em paralelo
 
-min_Nm_b = 1                                                        # Número minimo de modulos de bateria em serie                                                  
-max_Nm_b = 25                                                       # Número maximo de modulos de bateria em serie (Não extrapolar 1500 V)
+min_Nm_b = 15                                                       # Número minimo de modulos de bateria em serie                                                  
+max_Nm_b = 30                                                       # Número maximo de modulos de bateria em serie (Não extrapolar 1500 V)
 min_Np_b = 0                                                        # Número mínimo de baterias em paralelo
-max_Np_b = 15                                                       # Número máximo de baterias em paralelo
+max_Np_b = 8                                                       # Número máximo de baterias em paralelo
 
 i_SoC_Bat = 20
 i_SoC_UC = 3
@@ -418,7 +418,7 @@ algorithm = NSGA2(
 
 from pymoo.termination import get_termination
 
-termination = get_termination("n_gen", 60)
+termination = get_termination("n_gen", 30)
 
 from pymoo.optimize import minimize
 
