@@ -149,32 +149,32 @@ class Batt():
         
         return self._SoC, self._v_banco, p_reject, i_bat
     
-    def verificaPotencia(self, Ed : float, dt : float) -> (float):
-        """
-        Método para verificar se o banco consegue absorver/fornecer energia
-        :param float E_d: Energia que se deseja absorver/fornecer
-        :param float dt: Tempo em segundos para se absorver a energia
-        return power: potencia máxima que pode ser gerenciada pelo 
-        """
-        # ---------------------------------------- Restrição por Estado de Carga ----------------------------------------
+    # def verificaPotencia(self, Ed : float, dt : float) -> (float):
+    #     """
+    #     Método para verificar se o banco consegue absorver/fornecer energia
+    #     :param float E_d: Energia que se deseja absorver/fornecer
+    #     :param float dt: Tempo em segundos para se absorver a energia
+    #     return power: potencia máxima que pode ser gerenciada pelo 
+    #     """
+    #     # ---------------------------------------- Restrição por Estado de Carga ----------------------------------------
         
         
-        energia_maxima_absorvivel = (self._max_SoC/100) * self._total_energy - self._SoC_Energy
-        energia_minima_absorvivel = (self._min_SoC/100) * self._total_energy - self._SoC_Energy
+    #     energia_maxima_absorvivel = (self._max_SoC/100) * self._total_energy - self._SoC_Energy
+    #     energia_minima_absorvivel = (self._min_SoC/100) * self._total_energy - self._SoC_Energy
 
-        clip_energy = np.clip(Ed, energia_minima_absorvivel, energia_maxima_absorvivel)
+    #     clip_energy = np.clip(Ed, energia_minima_absorvivel, energia_maxima_absorvivel)
 
-        # ------------------------------------------- Restrição por Corrente --------------------------------------------
-        corrente_maxima_absorvivel = ( self._Np * 40 ) - self._i_bat
-        corrente_minima_absorvivel = (-1 * self._Np * 40) - self._i_bat
+    #     # ------------------------------------------- Restrição por Corrente --------------------------------------------
+    #     corrente_maxima_absorvivel = ( self._Np * 40 ) - self._i_bat
+    #     corrente_minima_absorvivel = (-1 * self._Np * 40) - self._i_bat
 
-        corrente_desejada = (Ed * dt) / self._v_banco 
+    #     corrente_desejada = (Ed * dt) / self._v_banco 
 
-        clip_current = np.clip(corrente_desejada, corrente_minima_absorvivel, corrente_maxima_absorvivel)
+    #     clip_current = np.clip(corrente_desejada, corrente_minima_absorvivel, corrente_maxima_absorvivel)
 
-        clip_energy_corrente = (self._v_banco * clip_current) / dt
+    #     clip_energy_corrente = (self._v_banco * clip_current) / dt
 
-        return min([clip_energy, clip_energy_corrente])
+    #     return min([clip_energy, clip_energy_corrente])
 
 
     def setC_rate(self, C_rate: float) -> None:
@@ -221,6 +221,12 @@ class Batt():
             print("Erro ao ler LUT de saúde da bateria:", e)
             return e
         
+    def getVoltage(self) -> float:
+        """
+        Método para pegar a tensão atual do banco de baterias.
+        """        
+        return self._v_banco
+
     def plotBatterySoCGraph(self):
         """
         Plota o gráfico de Tensão x SoC da bateria

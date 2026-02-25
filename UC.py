@@ -161,6 +161,7 @@ class Uc():
             self._stored_energy = clip_energy
             self._SoC = (self._stored_energy / self._total_energy) * 100
             self._v_banco = self.energy2voltage(clip_energy, self._SoC)
+            self.i_uc = i_uc
         return self._SoC, self._v_banco, p_reject, i_uc
 
     def setC_rate(self, C_rate: float) -> None:
@@ -173,11 +174,35 @@ class Uc():
         self._C_rate = C_rate
 
 
+    def getSoC(self) -> float:
+        return self._SoC
+
 
     def verificaPotencia(self, Ed : float, dt : float) -> (float):
-         """
+        """
         Método para verificar se o banco consegue absorver/fornecer energia
         :param float E_d: Energia que se deseja absorver/fornecer
         :param float dt: Tempo em segundos para se absorver a energia
         return power: potencia máxima que pode ser gerenciada pelo 
         """
+        # ---------------------------------------- Restrição por Estado de Carga ----------------------------------------
+        
+        energia_maxima_absorvivel = (self._SoC_max/100) * self._total_energy - self._total_energy
+    
+        energia_minima_absorvivel = (self._SoC_min/100) * self._total_energy - self._total_energy
+
+        clip_energy = np.clip(Ed, energia_minima_absorvivel, energia_maxima_absorvivel)
+
+        # ------------------------------------------- Restrição por Corrente --------------------------------------------
+        i_max = self._C_rate * self._Cap_uc * self._Np              # Corrente máxima usando taxa C
+
+        corrente_maxima_absorvivel = i_max - self.i_uc
+        corrente_minima_absorvivel = (-1* i_max) - self.i_uc
+
+        corrente_desejada = (Ed * dt) / self._v_banco 
+
+        clip_current = np.clip(corrente_desejada, corrente_minima_absorvivel, corrente_maxima_absorvivel)
+
+        clip_energy_por_corrente = (self._v_banco * clip_current) / dt
+
+        return min([clip_energy, clip_energy_por_corrente])

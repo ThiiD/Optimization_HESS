@@ -255,6 +255,17 @@ class MyProblem(ElementwiseProblem):
                                """)
         # sleep(10)
 
+    def configFluxUC2Bat(self, SoC_uc_ref = 50.0 , BH = 2.0, Taxa = 0.01) -> None:
+        """
+        Configura a histerese do sistema.\n
+        :param float SoC_uc_ref: Setpoint para o estado de carga do supercapacitor. \\n
+        :param float BH: Banda de histerese, em SoC, para o supercapacitor.  \n
+        :param int Taxa: Taxa (1~8C) na qual o SC descarrega na bateria. \n
+        """
+        self._SoC_uc_ref = SoC_uc_ref
+        self._BH = BH
+        self._Taxa_ref = Taxa
+
     def _evaluate(self, x, out, *args, **kwargs):
         Nm_b = int(round(x[0]))                                 # Numero de modulos de baterias
         Np_b = int(round(x[1]))                                 # Número de baterias em paralelo
@@ -280,6 +291,7 @@ class MyProblem(ElementwiseProblem):
             sim = Simulation()
             sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.2, SoC=i_SoC_Bat, T_m = self._T_xb)
             sim.setParam_UC(C=3400, Cap_uc=Cap_uc, Ns=Ns_uc, Np=Np_uc, Nm=Nm_uc, Vnom=3, SoC=i_SoC_UC, T_m=T_xuc)
+            sim.configFluxUC2Bat(self._SoC_uc_ref, self._BH, self._Taxa_ref)
             sim.simulate(self._data, self._sheet, threshold=Pth)
             energia_rejeitada = sum(sim._p_reject) / 3600  # Wh
             # Energia absorvida é a soma das potências negativas (absorvidas) pelos sistemas
@@ -393,9 +405,12 @@ class MyProblem(ElementwiseProblem):
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------- Otimização ------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
-
+SoC_uc_ref = 50
+BH = 2
+Taxa = 0.1
 problem = MyProblem()
-arquivo = "AGREGADOR ANALYSIS.xlsx"
+problem.configFluxUC2Bat(SoC_uc_ref, BH, Taxa)
+arquivo = "CR-3112_28-09-24_AGGREGATED.xlsx"
 diretorio_figuras = "Figuras/" + arquivo.split(".")[0]
 os.makedirs(diretorio_figuras, exist_ok=True)
 data = "data/" + arquivo
@@ -418,7 +433,7 @@ algorithm = NSGA2(
 
 from pymoo.termination import get_termination
 
-termination = get_termination("n_gen", 30)
+termination = get_termination("n_gen", 60)
 
 from pymoo.optimize import minimize
 
@@ -668,6 +683,7 @@ except:
 
 # Rodar a simulação para a melhor solução
 sim = Simulation()
+sim.configFluxUC2Bat(SoC_uc_ref, BH, Taxa)
 sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=best_Np_b, Nm=best_Nm_b, Vnom=3.2, SoC=50, T_m=T_xb)
 sim.setParam_UC(C=3400, Cap_uc=Cap_uc, Ns=Ns_uc, Np=best_Np_uc, Nm=best_Nm_uc, Vnom=3, SoC=50, T_m=T_xuc)
 sim.simulate(data, sheet, best_Pth)
