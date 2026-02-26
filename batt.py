@@ -108,7 +108,7 @@ class Batt():
         return self._total_energy
     
     
-    def updateEnergy(self, current: float, dt: float) -> (float | float | float | float):
+    def updateEnergy(self, current: float, dt: float) -> (float | float | float | float | float):
         """
         Atualiza a energia total da bateria usando contador de Coulomb
         :param float current: Corrente da bateria (A, + carga, - descarga)
@@ -117,6 +117,7 @@ class Batt():
         :return float v_banco: Tensão total do pack de bateria
         :return float p_reject: Potência rejeitada (kW)
         :return float i_bat: Corrente limitada por SoC e maximo/minimo de corrente (A)
+        :return float p_actual: Potência efetivamente trocada no passo (W), para balanço exato com o barramento
         """
         # Calcula variação de energia
         if self._Np == 0:
@@ -124,6 +125,7 @@ class Batt():
             self._v_banco = 0
             p_reject = 0
             i_bat = 0
+            p_actual = 0.0
         else:
             charge = -1 * current * dt / 3600                                   # Converte para horas
             energy_variation = self._v_banco * charge                           # Variacao de energia em Wh
@@ -138,16 +140,17 @@ class Batt():
                 (self._max_SoC/100) * self._total_energy
             )
             p_reject = -1* (((new_energy - clip_energy) * 3600) / dt) / 1000                         # Potência rejeitada (kW)
-            i_bat = -1 * (((clip_energy - self._SoC_Energy) * 3600) / dt) / self._v_banco       
+            i_bat = -1 * (((clip_energy - self._SoC_Energy) * 3600) / dt) / self._v_banco
 
+            # Potência efetiva no passo (W): usa variação de energia para balanço exato (evita usar V_final)
+            p_actual = - (clip_energy - self._SoC_Energy) * 3600 / dt
 
-            
             self._SoC_Energy = clip_energy
             self._SoC = self.Energy2SoC(clip_energy)
             self._v_banco = self._Ns * self._Nm * self.LUT(self._SoC)
             self._i_bat = i_bat
         
-        return self._SoC, self._v_banco, p_reject, i_bat
+        return self._SoC, self._v_banco, p_reject, i_bat, p_actual
     
     # def verificaPotencia(self, Ed : float, dt : float) -> (float):
     #     """

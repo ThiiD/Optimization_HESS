@@ -128,7 +128,7 @@ class Uc():
         return self._total_energy
     
     
-    def updateEnergy(self, current: float, dt: float) -> tuple[float, float, float, float]:
+    def updateEnergy(self, current: float, dt: float) -> tuple[float, float, float, float, float]:
         """
         Atualiza energia do banco usando a corrente
         :param float current: Corrente do banco (A, + carga, - descarga)
@@ -136,12 +136,14 @@ class Uc():
         :return tuple[float, float]: (Tensão do banco, Energia armazenada)
         :return float p_reject: Potência rejeitada (kW)
         :return float i_uc: Verdadeira corrente do banco (A)
+        :return float p_actual: Potência efetivamente trocada no passo (W), para balanço exato com o barramento
         """
         if self._Np == 0:
             self._SoC = 0
             self._v_banco = 0
             p_reject = 0
             i_uc = 0
+            p_actual = 0.0
         else:
             # Calcula variação de energia (P = V*I)
             energy_variation = -1 * self._v_banco * current * dt
@@ -156,13 +158,16 @@ class Uc():
             
             p_reject = -1*((new_energy - clip_energy) / dt) / 1000         # Potência rejeitada (kW)
             i_uc = -1 * ((clip_energy - self._stored_energy) / dt) / self._v_banco
-            
+
+            # Potência efetiva no passo (W): usa variação de energia para balanço exato (evita usar V_final)
+            p_actual = - (clip_energy - self._stored_energy) / dt
+
             # Atualiza estados
             self._stored_energy = clip_energy
             self._SoC = (self._stored_energy / self._total_energy) * 100
             self._v_banco = self.energy2voltage(clip_energy, self._SoC)
             self.i_uc = i_uc
-        return self._SoC, self._v_banco, p_reject, i_uc
+        return self._SoC, self._v_banco, p_reject, i_uc, p_actual
 
     def setC_rate(self, C_rate: float) -> None:
         """

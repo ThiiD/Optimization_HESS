@@ -190,12 +190,12 @@ class Simulation():
             
             # Atualiza bateria
             i_bat, p_bat_reject_1 = self._batt.setCurrent(power_bat)
-            SoC, v_banco_bat, p_bat_reject_2, i_bat = self._batt.updateEnergy(i_bat, 1)
+            SoC, v_banco_bat, p_bat_reject_2, i_bat, p_batt_actual = self._batt.updateEnergy(i_bat, 1)
             p_bat_reject = p_bat_reject_1 + p_bat_reject_2
             
             # Atualiza supercapacitor
             i_uc, p_uc_reject_1 = self._uc.setCurrent(power_uc)
-            SoC_uc, v_banco_uc, p_uc_reject_2, i_uc = self._uc.updateEnergy(i_uc, 1)
+            SoC_uc, v_banco_uc, p_uc_reject_2, i_uc, p_uc_actual = self._uc.updateEnergy(i_uc, 1)
             p_uc_reject = p_uc_reject_1 + p_uc_reject_2
 
             # Fluxo entre os elementos armazenadores de potência
@@ -212,15 +212,15 @@ class Simulation():
 
             p_reject = p_bat_reject + p_uc_reject
             
-            # Armazena resultados
+            # Armazena resultados (p_batt_actual e p_uc_actual em W para balanço exato com o barramento)
             self._SoC.append(SoC)
-            self._p_batt.append(i_bat * v_banco_bat)  # Potência realmente fornecida pela bateria
+            self._p_batt.append(p_batt_actual)  # Potência efetivamente trocada no passo (W)
             self._v_banco_bat.append(v_banco_bat)
             self._i_bat.append(i_bat)
             self._p_bat_reject.append(p_bat_reject)
 
             self._SoC_UC.append(SoC_uc)
-            self._p_uc.append(i_uc * v_banco_uc)  # Potência realmente fornecida pelo supercapacitor
+            self._p_uc.append(p_uc_actual)  # Potência efetivamente trocada no passo (W)
             self._i_uc.append(i_uc)
             self._v_banco_uc.append(v_banco_uc)
             self._p_uc_reject.append(p_uc_reject)
@@ -491,6 +491,18 @@ class Simulation():
                                     ["Potência Rejeitada", ]])
         
 if __name__ == "__main__":
+    plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": "serif",
+        "font.serif": ["Computer Modern Roman"], # Or other serif font
+        "axes.labelsize": 18,
+        "axes.labelweight": "bold",
+        "font.size": 18,
+        "legend.fontsize": 16,
+        "xtick.labelsize": 16,
+        "ytick.labelsize": 16,
+    })
+
     data = r"data\Perfil_Sintetico.xlsx"
     sheet = "Log"
     diretorio_figuras = "Figuras/Validador/"
@@ -506,7 +518,7 @@ if __name__ == "__main__":
     params_batt = {
         "C"     :   40,
         "Ns"    :   16,
-        "Np"    :   5,
+        "Np"    :   4,
         "Nm"    :   24,
         "Vnom"  :   3.25,
         "SoC"   :   50,
@@ -566,12 +578,14 @@ if __name__ == "__main__":
         corrente = input_df["ai_04_m2amps"]
         tensao = tensao = input_df["ai_11_altoutvolts"]
 
+    # powers_diesel = powers_diesel / 1000  # Conversão para kW
+
     # ----------------------------------------------------------------------------------------------------------------------------------------------------
     # ----------------------------------------------- Gráfico de Potência, Corrente e Tensão de Entrada -------------------------------------------------
     # ----------------------------------------------------------------------------------------------------------------------------------------------------  
 
     fig, axs = plt.subplots(3, 1, figsize=(fig_width_cm, fig_height_cm*1.2), sharex=True)
-    axs[0].set_title('Dados de Entrada do Ciclo (Arquivo Excel)')
+    axs[0].set_title('Dados do Perfil de Potência (Dados Sintético)')
     axs[0].plot(time, tensao, linewidth = 2, label='Tensão [V]', color='tab:blue')
     axs[0].set_ylabel('Tensão [V]')
     axs[0].grid()
@@ -587,6 +601,8 @@ if __name__ == "__main__":
     axs[2].set_xlabel('Tempo [s]')
     axs[2].set_xlim(0, len(input_df))
     axs[2].hlines([Pth, -Pth], time[0], time[-1], linestyle = "dashed", color = "tab:red")
+    axs[2].text(107, Pth + 0.05, f"Limiar: {Pth} kW", ha='center', va='bottom', color='red')
+    axs[2].text(111, -Pth - 530, f"Limiar: {-Pth} kW", ha='center', va='bottom', color='red')
     axs[2].grid()
     axs[2].legend(loc="upper right")
 
