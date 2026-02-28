@@ -32,7 +32,11 @@ class Simulation():
 
         self._uc = Uc()
         self._batt = Batt()
-        
+        # Modo atual da histerese do supercapacitor em relação à bateria
+        # "idle"      : sem troca de potência apenas pela histerese
+        # "charge_uc" : bateria carregando o supercapacitor
+        # "discharge_uc" : supercapacitor descarregando para a bateria
+        self._uc_hyst_mode = "idle"
 
     def configFluxUC2Bat(self, SoC_uc_ref : float, BH : float, Taxa : int) -> None:
         """
@@ -44,6 +48,7 @@ class Simulation():
         self._SoC_uc_ref = SoC_uc_ref
         self._BH = BH
         self._Taxa_ref = Taxa
+        self._uc_hyst_mode_vector = []
 
     def setParam_Batt(self, C: float, Ns: int, Np: int, Nm: int, Vnom: float, SoC: float, T_m: int) -> None:
         """
@@ -291,27 +296,66 @@ class Simulation():
         :param float power: Potência atual (kW)
         :param float threshold: Limiar de potência para distribuição (kW)
         """
-        # Estratégia: UC absorve potências de pico
-        power = power * 1000                                                        # Conversão para W
-        threshold = threshold * 1000                                                # Conversão para W
-        diff = 0
+        # Estratégia: UC absorve potências de pico e a bateria gerencia o SoC do UC
+        power = power * 1000          # Conversão para W
+        threshold = threshold * 1000  # Conversão para W
+
         SoC_uc = self._uc.getSoC()
 
-        if abs(power) > threshold:                                                  
+        # 1) Controle de pico de potência no barramento
+        if abs(power) > threshold and self._uc._Np != 0:
             power_uc = power - threshold if power > 0 else power + threshold
             power_bat = threshold if power > 0 else -threshold
+            return power_bat, power_uc
 
-        elif SoC_uc > (self._SoC_uc_ref + self._BH):
-            diff = self._batt.getVoltage() *  40 * self._batt_params["Np"] * self._Taxa_ref
-            power_uc = diff
-            power_bat = power - diff
-        elif SoC_uc < (self._SoC_uc_ref - self._BH):
-            diff = self._batt.getVoltage() *  40 * self._batt_params["Np"] * self._Taxa_ref
-            power_uc = -diff
-            power_bat = power + diff
-        else:
-            power_uc = 0
-            power_bat = power
+        # 2) Controle de histerese entre bateria e supercapacitor
+        upper_limit = self._SoC_uc_ref + self._BH
+        lower_limit = self._SoC_uc_ref - self._BH
+
+        diff = self._batt.getVoltage() * 40 * self._batt_params["Np"] * self._Taxa_ref
+
+        # Atualiza ou mantém o modo atual da histerese
+        if self._uc_hyst_mode == "charge_uc" and self._uc._Np != 0:
+            # Continua carregando o UC até atingir o limite superior (ex.: 54%)
+            if SoC_uc >= upper_limit:
+                self._uc_hyst_mode = "idle"
+            else:
+                power_uc = -diff
+                power_bat = power + diff
+                self._uc_hyst_mode_vector.append("charge_uc")
+                return power_bat, power_uc
+
+        if self._uc_hyst_mode == "discharge_uc" and self._uc._Np != 0:
+            # Continua descarregando o UC até atingir o limite inferior (ex.: 46%)
+            if SoC_uc <= lower_limit:
+                self._uc_hyst_mode = "idle"
+            else:
+                power_uc = diff
+                power_bat = power - diff
+                self._uc_hyst_mode_vector.append("discharge_uc")
+                return power_bat, power_uc
+
+        # 3) Definição do novo modo com base nos limites de histerese
+        if self._uc_hyst_mode == "idle" and self._uc._Np != 0:
+            if SoC_uc < lower_limit:
+                # SoC baixo: bateria carrega o UC até upper_limit
+                self._uc_hyst_mode = "charge_uc"
+                power_uc = -diff
+                power_bat = power + diff
+                self._uc_hyst_mode_vector.append("charge_uc")
+                return power_bat, power_uc
+            elif SoC_uc > upper_limit:
+                # SoC alto: UC descarrega até lower_limit
+                self._uc_hyst_mode = "discharge_uc"
+                power_uc = diff
+                power_bat = power - diff
+                self._uc_hyst_mode_vector.append("idle")
+                return power_bat, power_uc
+
+        # 4) Dentro da banda de histerese e em modo "idle": sem fluxo adicional
+        self._uc_hyst_mode_vector.append("idle")
+        power_uc = 0
+        power_bat = power
             
         return power_bat, power_uc
     
@@ -733,4 +777,17 @@ if __name__ == "__main__":
     plt.xlim([0, time[-1]])
     plt.tight_layout()
     plt.savefig(diretorio_figuras + f"_05_power_comparison.pdf", bbox_inches='tight')
+    plt.show(block=False)
+
+
+    plt.figure(figsize=(fig_width_cm, fig_height_cm/1.5))
+    plt.plot(sim._uc_hyst_mode_vector, linewidth = 2, color='tab:blue', label='Modo de Histerese')
+    plt.ylabel('Modo de Histerese')
+    plt.xlabel('Tempo [s]')
+    plt.title('Modo de Histerese')
+    plt.legend(loc='upper right')
+    plt.grid()
+    plt.xlim([0, time[-1]])
+    plt.tight_layout()
+    # plt.savefig(diretorio_figuras + f"_06_hysteresis_mode.pdf", bbox_inches='tight')
     plt.show(block=True)
