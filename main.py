@@ -411,7 +411,7 @@ class MyProblem(ElementwiseProblem):
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 SoC_uc_ref = 50
 BH = 2
-Taxa = 1
+Taxa = 0.1
 problem = MyProblem()
 problem.configFluxUC2Bat(SoC_uc_ref, BH, Taxa)
 arquivo = "CR-3112_28-09-24_AGGREGATED.xlsx"
