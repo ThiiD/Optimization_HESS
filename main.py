@@ -33,7 +33,7 @@ fig_height_cm = 18/2.4
 
 # Parâmetros financeiros e operacionais
 preco_diesel = 5.78  # R$/litro
-rendimento_diesel = 3.0  # kWh/litro
+rendimento_diesel = 3.6  # kWh/litro
 
 # Estimativa do preço da eletronica de potencia
 total_elepot = 2000                                                                                             # Potencia total que se deseja gerenciar
@@ -65,16 +65,18 @@ taxa_desconto_anual = 0.10                                          # Taxa minim
 taxa_desconto_mensal = (1 + taxa_desconto_anual) ** (1/12) - 1      # TMA mensal calculada a partir da TMA anual
 
 # Caracteristicas bateria
-vb_nom = 3.2
+vb_nom = 3.25
 vb_max = 3.65
 
 vuc_max = 3
 
 # Definições relativas a otmização
-step_pth = 25                                                       # Step entre as potências de limiares simuladas
-potencia_de_limiar_max = 2000                                       # Potência de limiar máxima
-max_pth = round(potencia_de_limiar_max / step_pth)                  # Número discreto máximo de passos para a potência de limiar
-min_pth = 0                                                         # Número discreto mínimo de passos para a potência de limiar
+step_pth = 25                                                                                   # Step entre as potências de limiares simuladas
+potencia_de_limiar_max = 2000                                                                   # Potência de limiar máxima
+potencia_de_limiar_min = 1000                                                                   # Potência de limiar mínima
+min_pth = round(potencia_de_limiar_min / step_pth)                                              # Número discreto mínimo de passos para a potência de limiar
+max_pth = round((potencia_de_limiar_max - potencia_de_limiar_min) / step_pth) + min_pth        # Número discreto máximo de passos para a potência de limiar
+
 
 Ns_b = 16                                                           # Número de baterias em serie
 Ns_uc = 16                                                          # Número de supercapacitores em serie
@@ -85,7 +87,7 @@ min_Np_uc = 0                                                       # Número mi
 max_Np_uc = 7                                                       # Número máximo de supercapacitores em paralelo
 
 min_Nm_b = 15                                                       # Número minimo de modulos de bateria em serie                                                  
-max_Nm_b = 30                                                       # Número maximo de modulos de bateria em serie (Não extrapolar 1500 V)
+max_Nm_b = 28                                                       # Número maximo de modulos de bateria em serie (Não extrapolar 1500 V)
 min_Np_b = 0                                                        # Número mínimo de baterias em paralelo
 max_Np_b = 8                                                       # Número máximo de baterias em paralelo
 
@@ -96,6 +98,8 @@ i_SoC_UC = 3
 cot_dolar = 5.30                                                    # Valor sugerido pelo Guilherme
 Pb = 28.00                                                          # Preço da bateria em dolares (Fonte: data_sources.xlsx)
 Puc = 53.75                                                         # Preço do supercapacitor em dolares (Fonte: data_sources.xlsx)
+# Pb= 12.8                                                            # Preço da bateria em dolares (Sugestão Guilherme)
+# Puc= 9.75                                                         # Preço do supercapacitor em dolares (Sugestão Guilherme)
 
 Vb = 0.596                                                          # Volume da bateria em L (Fonte: data_sources.xlsx)
 Vuc = 0.496                                                         # Volume do supercapacitor em L (Fonte: data_sources.xlsx)
@@ -289,8 +293,8 @@ class MyProblem(ElementwiseProblem):
         cache_key = (Nm_b, Np_b, Nm_uc, Np_uc, Pth)
         if cache_key not in self.simulation_cache:
             sim = Simulation()
-            sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.2, SoC=i_SoC_Bat, T_m = self._T_xb)
-            sim.setParam_UC(C=3400, Cap_uc=Cap_uc, Ns=Ns_uc, Np=Np_uc, Nm=Nm_uc, Vnom=3, SoC=i_SoC_UC, T_m=T_xuc)
+            sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.25, SoC=i_SoC_Bat, T_m = self._T_xb)
+            sim.setParam_UC(C=3140, Cap_uc=Cap_uc, Ns=Ns_uc, Np=Np_uc, Nm=Nm_uc, Vnom=3, SoC=i_SoC_UC, T_m=T_xuc)
             sim.configFluxUC2Bat(self._SoC_uc_ref, self._BH, self._Taxa_ref)
             sim.simulate(self._data, self._sheet, threshold=Pth)
             energia_rejeitada = sum(sim._p_reject) / 3600  # Wh
@@ -304,8 +308,8 @@ class MyProblem(ElementwiseProblem):
             self.simulation_cache[cache_key] = (energia_rejeitada, energia_absorvida, sim._SoC, sim._SoC_UC)
         else:
             sim = Simulation()
-            sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.2, SoC=i_SoC_Bat, T_m = self._T_xb)
-            sim.setParam_UC(C=3400, Cap_uc=Cap_uc, Ns=Ns_uc, Np=Np_uc, Nm=Nm_uc, Vnom=3, SoC=i_SoC_UC, T_m=T_xuc)
+            sim.setParam_Batt(C=Cap_b, Ns=Ns_b, Np=Np_b, Nm=Nm_b, Vnom=3.25, SoC=i_SoC_Bat, T_m = self._T_xb)
+            sim.setParam_UC(C=3140, Cap_uc=Cap_uc, Ns=Ns_uc, Np=Np_uc, Nm=Nm_uc, Vnom=3, SoC=i_SoC_UC, T_m=T_xuc)
             energia_rejeitada, energia_absorvida, sim._SoC, sim._SoC_UC = self.simulation_cache[cache_key]
 
         # Energia absorvida por ciclo (Wh)
@@ -407,7 +411,7 @@ class MyProblem(ElementwiseProblem):
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 SoC_uc_ref = 50
 BH = 2
-Taxa = 0.1
+Taxa = 1
 problem = MyProblem()
 problem.configFluxUC2Bat(SoC_uc_ref, BH, Taxa)
 arquivo = "CR-3112_28-09-24_AGGREGATED.xlsx"
@@ -433,7 +437,7 @@ algorithm = NSGA2(
 
 from pymoo.termination import get_termination
 
-termination = get_termination("n_gen", 60)
+termination = get_termination("n_gen", 30)
 
 from pymoo.optimize import minimize
 
