@@ -96,10 +96,10 @@ i_SoC_UC = 3
 
 # Definição dos parametros do problema
 cot_dolar = 5.30                                                    # Valor sugerido pelo Guilherme
-Pb = 28.00                                                          # Preço da bateria em dolares (Fonte: data_sources.xlsx)
-Puc = 53.75                                                         # Preço do supercapacitor em dolares (Fonte: data_sources.xlsx)
-# Pb= 12.8                                                            # Preço da bateria em dolares (Sugestão Guilherme)
-# Puc= 9.75                                                         # Preço do supercapacitor em dolares (Sugestão Guilherme)
+# Pb = 28.00                                                          # Preço da bateria em dolares (Fonte: data_sources.xlsx)
+# Puc = 53.75                                                         # Preço do supercapacitor em dolares (Fonte: data_sources.xlsx)
+Pb= 12.8                                                            # Preço da bateria em dolares (Sugestão Guilherme)
+Puc= 9.75                                                           # Preço do supercapacitor em dolares (Sugestão Guilherme)
 
 Vb = 0.596                                                          # Volume da bateria em L (Fonte: data_sources.xlsx)
 Vuc = 0.496                                                         # Volume do supercapacitor em L (Fonte: data_sources.xlsx)
@@ -301,9 +301,11 @@ class MyProblem(ElementwiseProblem):
             # Energia absorvida é a soma das potências negativas (absorvidas) pelos sistemas
             p_batt_arr = np.array(sim._p_batt)
             p_uc_arr = np.array(sim._p_uc)
+            uf_diff = np.array(sim._uc_diff)
             energia_absorvida = (
                 np.abs(np.sum(p_batt_arr[p_batt_arr < 0])) +
-                np.abs(np.sum(p_uc_arr[p_uc_arr < 0]))
+                np.abs(np.sum(p_uc_arr[p_uc_arr < 0])) - 
+                np.abs(np.sum(uf_diff))
             ) / 3600  # Wh
             self.simulation_cache[cache_key] = (energia_rejeitada, energia_absorvida, sim._SoC, sim._SoC_UC)
         else:
@@ -410,11 +412,11 @@ class MyProblem(ElementwiseProblem):
 # ----------------------------------------------- Otimização ------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------------------------------------
 SoC_uc_ref = 50
-BH = 2
-Taxa = 0.1
+BH = 4
+Taxa = 0.5
 problem = MyProblem()
 problem.configFluxUC2Bat(SoC_uc_ref, BH, Taxa)
-arquivo = "CR-3112_28-09-24_AGGREGATED.xlsx"
+arquivo = "UMAX_18-10-24.xlsx"
 diretorio_figuras = "Figuras/" + arquivo.split(".")[0]
 os.makedirs(diretorio_figuras, exist_ok=True)
 data = "data/" + arquivo
@@ -430,14 +432,14 @@ algorithm = NSGA2(
     pop_size=20,
     n_offsprings=20,
     sampling=IntegerRandomSampling(),
-    crossover=SBX(prob=0.8, eta=15),
-    mutation=PM(eta=15, prob=0.3),
+    crossover=SBX(prob=0.8, eta=10),
+    mutation=PM(eta=10, prob=0.4),
     eliminate_duplicates=True
 )
 
 from pymoo.termination import get_termination
 
-termination = get_termination("n_gen", 30)
+termination = get_termination("n_gen", 60)
 
 from pymoo.optimize import minimize
 
