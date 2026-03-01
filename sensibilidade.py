@@ -21,7 +21,7 @@ variacao = np.array([0.6, 0.8, 1.2, 1.4])
 # Parâmetros financeiros e operacionais
 preco_diesel = 5.78
 vetor_preco_diesel = [3.69, 5.78, 7.46]                                                                         # R$/litro
-rendimento_diesel = 3.0                                                                                         # kWh/litro
+rendimento_diesel = 3.6                                                                                         # kWh/litro
 
 # Estimativa do preço da eletronica de potencia
 total_elepot = 2000                                                                                             # Potencia total que se deseja gerenciar
@@ -53,16 +53,25 @@ taxa_desconto_anual = 0.10                                                  # Ta
 taxa_desconto_mensal = (1 + taxa_desconto_anual) ** (1/12) - 1              # TMA mensal calculada a partir da TMA anual
 
 # Definições relativas a otmização
-step_pth = 25                                                       # Step entre as potências de limiares simuladas
-potencia_de_limiar_max = 2000                                       # Potência de limiar máxima
-max_pth = round(potencia_de_limiar_max / step_pth)                  # Número discreto máximo de passos para a potência de limiar
-min_pth = 0                                                         # Número discreto mínimo de passos para a potência de limiar
+step_pth = 25                                                                                   # Step entre as potências de limiares simuladas
+potencia_de_limiar_max = 2000                                                                   # Potência de limiar máxima
+potencia_de_limiar_min = 1000                                                                   # Potência de limiar mínima
+min_pth = round(potencia_de_limiar_min / step_pth)                                              # Número discreto mínimo de passos para a potência de limiar
+max_pth = round((potencia_de_limiar_max - potencia_de_limiar_min) / step_pth) + min_pth        # Número discreto máximo de passos para a potência de limiar
 
-min_uc = 0                                                          # Número minimo de supercapacitores
-max_uc = 10                                                         # Número máximo de supercapacitores
 
-min_bat = 0                                                         # Número mínimo de baterias
-max_bat = 10                                                        # Número máximo de baterias
+Ns_b = 16                                                           # Número de baterias em serie
+Ns_uc = 16                                                          # Número de supercapacitores em serie
+
+min_Nm_uc = 11                                                      # Número minimo de modulos de supercapacitor
+max_Nm_uc = 31                                                      # Número máximo de modulos de supercapacitor (Não extrapolar 1500 V)
+min_Np_uc = 0                                                       # Número minimo de supercapacitores em paralelo
+max_Np_uc = 7                                                       # Número máximo de supercapacitores em paralelo
+
+min_Nm_b = 15                                                       # Número minimo de modulos de bateria em serie                                                  
+max_Nm_b = 28                                                       # Número maximo de modulos de bateria em serie (Não extrapolar 1500 V)
+min_Np_b = 0                                                        # Número mínimo de baterias em paralelo
+max_Np_b = 8                                                       # Número máximo de baterias em paralelo
 
 # Definição dos parametros do problema
 cot_dolar = 5.30                                                   # 22/07/2025
@@ -82,9 +91,7 @@ Wb = 1.060                                                          # Peso da ba
 Wuc = 0.460                                                         # Peso do supercapacitor em kg (Fonte: data_sources.xlsx)
 
 Ns_b = 16                                                           # Número de baterias em serie
-Nm_b = 24                                                           # Número de módulos de baterias
 Ns_uc = 16                                                          # Número de supercapacitores em serie
-Nm_uc = 20                                                          # Número de módulos de supercapacitores
 
 Cap_b = 40.0                                                        # Capacidade da bateria em Ah
 T_xb = 6                                                            # Multiplicador da capacidade da bateria
@@ -130,6 +137,48 @@ if not os.path.exists(arquivo_excel):
 else:
     print("Arquivo já existe. Carregando...")
     df = pd.read_excel(arquivo_excel)
+
+
+
+def definitions():
+
+    # ------------------------------------------------------
+    # ----------------------- Diesel -----------------------
+    # ------------------------------------------------------
+    preco_diesel = 5.78
+    vetor_preco_diesel = [3.69, 5.78, 7.46]                                                                         # R$/litro
+
+    # ------------------------------------------------------
+    # ----------------------- Elepot -----------------------
+    # ------------------------------------------------------
+    preco_razao_elepot = 10
+    vetor_preco_razao_elepot = [5, 10, 20]
+
+    # ------------------------------------------------------
+    # ----------------------- Dolar ------------------------
+    # ------------------------------------------------------
+    cot_dolar = 5.30                                                   # 22/07/2025
+    vetor_cot_dolar = [4.58, 5.30, 6.31]                                # Vetor de variacao da cotação do dolar
+    
+    # ------------------------------------------------------
+    # ----------------------- Bateria ----------------------
+    # ------------------------------------------------------
+    Pb_usd = 12.8                                                      # Preço da bateria em dolares (Fonte: data_sources.xlsx)
+    vetor_Pb_uds = [6.4, 12.8, 34.688]                                    # Vetor de sensibilidade do preço da bateria em dolares
+    
+    # ------------------------------------------------------
+    # ------------------- Supercapacitor -------------------
+    # ------------------------------------------------------
+    Puc_usd = 9.75                                                     # Preço do supercapacitor em dolares (Fonte: data_sources.xlsx)
+    vetor_Puc_usd = [5.85, 9.75, 13.65]                                  # Vetor de sensibilidade do preço do supercapacitor em dolares
+
+    # ------------------------------------------------------
+    # --------------------- C-Rate Bat ---------------------
+    # ------------------------------------------------------
+    T_xb = 6                                                            # Multiplicador da capacidade da bateria
+    vetor_T_xb = [2, 6, 10]                                             # Vetor de sensibilidade da capacidade da bateria
+
+
 
 
 
