@@ -439,7 +439,7 @@ algorithm = NSGA2(
 
 from pymoo.termination import get_termination
 
-termination = get_termination("n_gen", 60)
+termination = get_termination("n_gen", 1)
 
 from pymoo.optimize import minimize
 

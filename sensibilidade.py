@@ -100,7 +100,7 @@ Cap_uc = 280.0                                                      # Capacidade
 T_xuc = 8                                                           # Multiplicador da capacidade do supercapacitor
 vetor_T_xuc = variacao * T_xuc                                      # Vetor de sensibilidade da capacidade do supercapacitor
 
-arquivo = "CR-3112_28-09-24_AGGREGATED.xlsx"
+arquivo = "AGREGADOR ANALYSIS.xlsx"
 diretorio_figuras = "Figuras/" + arquivo.split(".")[0]
 arquivo_excel = diretorio_figuras + "/" f"{arquivo.split(".")[0]}_sensibilidade.xlsx"
 os.makedirs(diretorio_figuras, exist_ok=True)
@@ -112,13 +112,13 @@ algorithm = NSGA2(
     pop_size=20,
     n_offsprings=20,
     sampling=IntegerRandomSampling(),
-    crossover=SBX(prob=0.9, eta=15),
-    mutation=PM(eta=15, prob=0.2),
+    crossover=SBX(prob=0.8, eta=10),
+    mutation=PM(eta=10, prob=0.4),
     eliminate_duplicates=True
 )
 
 
-termination = get_termination("n_gen", 15)
+termination = get_termination("n_gen", 30)
 
 print(f"Preço do diesel: {preco_diesel} R$    ;       Variação: {vetor_preco_diesel}")
 print(f"Cotação do dolar: {cot_dolar} R$/USD  ;       Variação: {vetor_cot_dolar}")
@@ -128,7 +128,35 @@ print(f"Preço supercapacitor: {Puc_usd} USD   ;       Variação: {vetor_Puc_us
 print(f"C-rate da bateria: {T_xb} C   ;       Variação: {vetor_T_xb}")
 
 
-columns_df = ["Preco Diesel [R$]", "Cotacao Dolar", "Preco Razao Elepot [USD]", "Preco R.E. Cor. Dolar [R$]",  "Preco Bat [USD]", "Preco Bat Cor. Dolar [R$]", "Preco UC [USD]", "Preco UC Cor. Dolar [R$]", "C-rate", "Nm,b", "Np,b","Nm,uc", "Np,uc", "Volume Total [L]", "Energia Total Bat. [kWh]", "Energia Total UC. [kWh]", "Energia Total [kWh]", "Pth [kW]", "VPL [R$]"]
+columns_df = ["Parametro variado", "Preco Diesel [R$]", "Cotacao Dolar", "Preco Razao Elepot [USD]", "Preco R.E. Cor. Dolar [R$]",  "Preco Bat [USD]", "Preco Bat Cor. Dolar [R$]", "Preco UC [USD]", "Preco UC Cor. Dolar [R$]", "C-rate", "Nm,b", "Np,b","Nm,uc", "Np,uc", "Volume Total [L]", "Energia Total Bat. [kWh]", "Energia Total UC. [kWh]", "Energia Total [kWh]", "Pth [kW]", "VPL [R$]"]
+
+# Valores de referência (baseline): um parâmetro por vez varia, os demais ficam nesses valores
+baseline = {
+    "Preco Diesel"       : preco_diesel,
+    "Cotacao Dolar"      : cot_dolar,
+    "Preco Razao Elepot" : vetor_preco_razao_elepot[1],  # 10
+    "Preco Bat"          : Pb_usd,
+    "Preco UC"           : Puc_usd,
+    "C-rate"             : T_xb,
+}
+# Cada parâmetro e seu vetor de variação (one-at-a-time)
+# Exclui o valor do meio de cada vetor (já rodado na simulação original / baseline)
+def _vetor_sem_meio(vetor):
+    """Remove o elemento do meio (índice len//2); baseline já cobre esse caso."""
+    n = len(vetor)
+    if n <= 1:
+        return vetor
+    meio = n // 2
+    return [vetor[i] for i in range(n) if i != meio]
+
+variaveis_sensibilidade = [
+    ("Preco Diesel", vetor_preco_diesel),
+    ("Cotacao Dolar", vetor_cot_dolar),
+    ("Preco Razao Elepot", vetor_preco_razao_elepot),
+    ("Preco Bat", vetor_Pb_uds),
+    ("Preco UC", vetor_Puc_usd),
+    ("C-rate", vetor_T_xb),
+]
 # Verifica se o arquivo existe
 if not os.path.exists(arquivo_excel):
     print("Arquivo não existe. Criando com header...")
@@ -137,6 +165,8 @@ if not os.path.exists(arquivo_excel):
 else:
     print("Arquivo já existe. Carregando...")
     df = pd.read_excel(arquivo_excel)
+    if "Parametro variado" not in df.columns:
+        df.insert(0, "Parametro variado", "")
 
 
 
@@ -184,134 +214,132 @@ def definitions():
 
 
 
-for preco_diesel in vetor_preco_diesel:
-    for cot_dolar in vetor_cot_dolar:
-        for preco_razao_elepot in vetor_preco_razao_elepot:
-            for Pb_usd in vetor_Pb_uds:
-                for Puc_usd in vetor_Puc_usd:
-                    for T_xb in vetor_T_xb:
+# Sensibilidade one-at-a-time: varia um parâmetro por vez, demais em baseline (sem o valor do meio)
+for param_nome, vetor_valores in variaveis_sensibilidade:
+    valores_a_rodar = _vetor_sem_meio(vetor_valores)
+    for valor in valores_a_rodar:
+        sensibilidade_input = dict(baseline)
+        sensibilidade_input[param_nome] = valor
 
-                        sensibilidade_input = {"Preco Diesel"       :   preco_diesel,
-                                            "Cotacao Dolar"         :   cot_dolar,
-                                            "Preco Razao Elepot"    :   preco_razao_elepot,
-                                            "Preco Bat"             :   Pb_usd,
-                                            "Preco UC"              :   Puc_usd,
-                                            "C-rate"                :   T_xb}
-                        
-                        sensibilidade_cache = {"Preco Diesel [R$]"              :   None,
-                                               "Cotacao Dolar"                  :   None,
-                                               "Preco Razao Elepot [USD]"       :   None,
-                                               "Preco R.E. Cor. Dolar [R$]"     :   None,
-                                               "Preco Bat [USD]"                :   None,
-                                               "Preco Bat Cor. Dolar [R$]"      :   None,
-                                               "Preco UC [USD]"                 :   None,
-                                               "Preco UC Cor. Dolar [R$]"       :   None,
-                                               "C-rate"                         :   None,
-                                               "Nm,b"                           :   None,
-                                               "Np,b"                           :   None,
-                                               "Nm,uc"                          :   None,
-                                               "Np,uc"                          :   None,
-                                               "Volume Total [L]"               :   None,
-                                               "Energia Total Bat. [kWh]"       :   None,
-                                               "Energia Total UC. [kWh]"        :   None,
-                                               "Energia Total [kWh]"            :   None,
-                                               "Pth [kW]"                       :   None,
-                                               "VPL [R$]"                       :   None}
-                        
-                        filtro = (
-                            (df["Preco Diesel [R$]"] == preco_diesel) &
-                            (df["Cotacao Dolar"] == cot_dolar) &
-                            (df["Preco Razao Elepot [USD]"] == preco_razao_elepot) &
-                            (df["Preco Bat [USD]"] == Pb_usd) &
-                            (df["Preco UC [USD]"] == Puc_usd) &
-                            (df["C-rate"] == T_xb)
-                        )
+        preco_diesel    = sensibilidade_input["Preco Diesel"]
+        cot_dolar       = sensibilidade_input["Cotacao Dolar"]
+        preco_razao_elepot = sensibilidade_input["Preco Razao Elepot"]
+        Pb_usd          = sensibilidade_input["Preco Bat"]
+        Puc_usd         = sensibilidade_input["Preco UC"]
+        T_xb            = sensibilidade_input["C-rate"]
 
-                        
-                        
-                        if filtro.any():
-                            print("Já existe, pulando:", preco_diesel, cot_dolar, preco_razao_elepot, Pb_usd, Puc_usd, T_xb)
-                            continue
+        sensibilidade_cache = {"Parametro variado"               :   param_nome,
+                               "Preco Diesel [R$]"              :   None,
+                               "Cotacao Dolar"                  :   None,
+                               "Preco Razao Elepot [USD]"       :   None,
+                               "Preco R.E. Cor. Dolar [R$]"     :   None,
+                               "Preco Bat [USD]"                :   None,
+                               "Preco Bat Cor. Dolar [R$]"      :   None,
+                               "Preco UC [USD]"                 :   None,
+                               "Preco UC Cor. Dolar [R$]"       :   None,
+                               "C-rate"                         :   None,
+                               "Nm,b"                           :   None,
+                               "Np,b"                           :   None,
+                               "Nm,uc"                          :   None,
+                               "Np,uc"                          :   None,
+                               "Volume Total [L]"               :   None,
+                               "Energia Total Bat. [kWh]"       :   None,
+                               "Energia Total UC. [kWh]"        :   None,
+                               "Energia Total [kWh]"            :   None,
+                               "Pth [kW]"                       :   None,
+                               "VPL [R$]"                       :   None}
 
+        filtro = (
+            (df["Parametro variado"] == param_nome) &
+            (df["Preco Diesel [R$]"] == preco_diesel) &
+            (df["Cotacao Dolar"] == cot_dolar) &
+            (df["Preco Razao Elepot [USD]"] == preco_razao_elepot) &
+            (df["Preco Bat [USD]"] == Pb_usd) &
+            (df["Preco UC [USD]"] == Puc_usd) &
+            (df["C-rate"] == T_xb)
+        )
 
-                        print("Novo caso, calculando:", sensibilidade_input)
+        if filtro.any():
+            print("Já existe, pulando:", param_nome, "=", valor)
+            continue
 
+        print("Novo caso, calculando:", sensibilidade_input)
 
-                        problem = MyProblem()
-                        problem.setData(data, sheet)
-                        problem.setParams(sensibilidade_input)
-                        Pb = Pb_usd * cot_dolar     # Preço da bateria em reais
-                        Puc = Puc_usd * cot_dolar   # Preço do supercapacitor em reais
+        SoC_uc_ref = 50
+        BH = 4
+        Taxa = 0.5
 
-                        # outputDisplay = MyOutput(diretorio_figuras + "/" + f"{arquivo.split(".")[0]}_nada.csv")
-                        res = minimize(problem,
-                                algorithm,
-                                termination,
-                                seed=1,
-                                save_history=True,
-                                verbose=True)
+        problem = MyProblem()
+        problem.setData(data, sheet)
+        problem.setParams(sensibilidade_input)
+        problem.configFluxUC2Bat(SoC_uc_ref, BH, Taxa)
+        Pb = Pb_usd * cot_dolar     # Preço da bateria em reais
+        Puc = Puc_usd * cot_dolar   # Preço do supercapacitor em reais
 
-                        # Após a otimização
-                        X = res.X
-                        F = res.F
-                        problem.simulation_cache = {}
+        res = minimize(problem,
+                algorithm,
+                termination,
+                seed=1,
+                save_history=True,
+                verbose=True)
 
-                        print(f'X: {X}')
-                        print(f'F: {F}')
-                        # outputDisplay.finalize()
+        X = res.X
+        F = res.F
+        problem.simulation_cache = {}
 
+        print(f'X: {X}')
+        print(f'F: {F}')
+        try:
+            idx_best = np.argmin(F[:, 0])  # Menor valor negativo de F => maior VPL
+            best_Nm_b = int(round(X[idx_best, 0]))
+            best_Np_b = int(round(X[idx_best, 1]))
+            best_Nm_uc = int(round(X[idx_best, 2]))
+            best_Np_uc = int(round(X[idx_best, 3]))
+            best_Pth = step_pth * int(round(X[idx_best, 4]))
+        except:
+            idx_best = np.argmin(F[0])
+            best_Nm_b = int(round(X[0]))
+            best_Np_b = int(round(X[1]))
+            best_Nm_uc = int(round(X[2]))
+            best_Np_uc = int(round(X[3]))
+            best_Pth = step_pth * int(round(X[4]))
 
-                        try:
-                            idx_best = np.argmin(F[:, 0])  # Menor valor negativo de F => maior VPL
-                            best_Nm_b = int(round(X[idx_best, 0]))
-                            best_Np_b = int(round(X[idx_best, 1]))
-                            best_Nm_uc = int(round(X[idx_best, 2]))
-                            best_Np_uc = int(round(X[idx_best, 3]))
-                            best_Pth = step_pth * int(round(X[idx_best, 4]))
-                        except:
-                            idx_best = np.argmin(F[0])  # Menor valor negativo de F => maior VPL
-                            best_Nm_b = int(round(X[0]))
-                            best_Np_b = int(round(X[1]))
-                            best_Nm_uc = int(round(X[2]))
-                            best_Np_uc = int(round(X[3]))
-                            best_Pth = step_pth * int(round(X[4]))
+        vpl = 0
+        for i, fc in enumerate(problem.melhor_fluxo_caixa):
+            vpl += fc / ((1 + taxa_desconto_mensal) ** i)
 
-                        vpl = 0
-                        for i, fc in enumerate(problem.melhor_fluxo_caixa):
-                            vpl += fc / ((1 + taxa_desconto_mensal) ** i)
-                        
-                        total_bat = 16 * best_Nm_b * best_Np_b
-                        total_uc  = 16 * best_Nm_uc * best_Np_uc
-                        energia_bat = 0.128 * total_bat
-                        energia_sc = 0.0039 * total_uc
-                        volume_total = (0.596 * total_bat) + (0.496 * total_uc)
-                        energia_total = energia_bat + energia_sc
-                        sensibilidade_cache["Preco Diesel [R$]"] = preco_diesel
-                        sensibilidade_cache["Cotacao Dolar"] = cot_dolar
-                        sensibilidade_cache["Preco Razao Elepot [USD]"] = preco_razao_elepot
-                        sensibilidade_cache["Preco R.E. Cor. Dolar [R$]"] = preco_razao_elepot * cot_dolar
-                        sensibilidade_cache["Preco Bat [USD]"] = Pb_usd
-                        sensibilidade_cache["Preco Bat Cor. Dolar [R$]"] = Pb_usd * cot_dolar
-                        sensibilidade_cache["Preco UC [USD]"] = Puc_usd
-                        sensibilidade_cache["Preco UC Cor. Dolar [R$]"] = Puc_usd * cot_dolar
-                        sensibilidade_cache["C-rate"] = T_xb
-                        sensibilidade_cache["Nm,b"] = best_Nm_b
-                        sensibilidade_cache["Np,b"] = best_Np_b
-                        sensibilidade_cache["Nm,uc"] = best_Nm_uc
-                        sensibilidade_cache["Np,uc"] = best_Np_uc
-                        sensibilidade_cache["Volume Total [L]"] = volume_total
-                        sensibilidade_cache["Energia Total Bat. [kWh]"] = energia_bat
-                        sensibilidade_cache["Energia Total UC. [kWh]"] = energia_sc
-                        sensibilidade_cache["Energia Total [kWh]"] = energia_total
-                        sensibilidade_cache["Pth [kW]"] = best_Pth
-                        sensibilidade_cache["VPL [R$]"] = vpl
+        total_bat = 16 * best_Nm_b * best_Np_b
+        total_uc  = 16 * best_Nm_uc * best_Np_uc
+        energia_bat = 0.128 * total_bat
+        energia_sc = 0.0039 * total_uc
+        volume_total = (0.596 * total_bat) + (0.496 * total_uc)
+        energia_total = energia_bat + energia_sc
+        sensibilidade_cache["Preco Diesel [R$]"] = preco_diesel
+        sensibilidade_cache["Cotacao Dolar"] = cot_dolar
+        sensibilidade_cache["Preco Razao Elepot [USD]"] = preco_razao_elepot
+        sensibilidade_cache["Preco R.E. Cor. Dolar [R$]"] = preco_razao_elepot * cot_dolar
+        sensibilidade_cache["Preco Bat [USD]"] = Pb_usd
+        sensibilidade_cache["Preco Bat Cor. Dolar [R$]"] = Pb_usd * cot_dolar
+        sensibilidade_cache["Preco UC [USD]"] = Puc_usd
+        sensibilidade_cache["Preco UC Cor. Dolar [R$]"] = Puc_usd * cot_dolar
+        sensibilidade_cache["C-rate"] = T_xb
+        sensibilidade_cache["Nm,b"] = best_Nm_b
+        sensibilidade_cache["Np,b"] = best_Np_b
+        sensibilidade_cache["Nm,uc"] = best_Nm_uc
+        sensibilidade_cache["Np,uc"] = best_Np_uc
+        sensibilidade_cache["Volume Total [L]"] = volume_total
+        sensibilidade_cache["Energia Total Bat. [kWh]"] = energia_bat
+        sensibilidade_cache["Energia Total UC. [kWh]"] = energia_sc
+        sensibilidade_cache["Energia Total [kWh]"] = energia_total
+        sensibilidade_cache["Pth [kW]"] = best_Pth
+        sensibilidade_cache["VPL [R$]"] = vpl
 
-                        res.X = None
-                        res.F = None
-                        res.G = None
+        res.X = None
+        res.F = None
+        res.G = None
 
-                        df = pd.concat([df, pd.DataFrame([sensibilidade_cache])], ignore_index=True)
-                        df.to_excel(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_sensibilidade.xlsx", columns=columns_df)
+        df = pd.concat([df, pd.DataFrame([sensibilidade_cache])], ignore_index=True)
+        df.to_excel(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_sensibilidade.xlsx", columns=columns_df)
 
 
 
