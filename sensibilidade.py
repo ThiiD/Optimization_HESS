@@ -25,14 +25,16 @@ rendimento_diesel = 3.6                                                         
 
 # Estimativa do preço da eletronica de potencia
 total_elepot = 2000                                                                                             # Potencia total que se deseja gerenciar
-preco_elepot_referencia = 52700                                                                                 # Preço elepot USD/MW (ref DOI 10.1109/ECCE.2013.6646971)
-# dolar_2013 = 2.15                                                                                             # Cotação do dolar na epoca (google)
-# inflacao_acumulada = 2.0041                                                                                   # Inflacao acumulada entre a epoca e agora (fonte: ibge)
-ppi_2013 = 59.5                                                                                                 # ppi da epoca
-ppi_2026 = 61.058                                                                                               # ppi da epoca
-ppi = ppi_2026 / ppi_2013                                                                                       # razao do ppi
-preco_razao_elepot = (preco_elepot_referencia/1e3) * ppi                                                        # Razao USD/kW
+# preco_elepot_referencia = 52700                                                                                 # Preço elepot USD/MW (ref DOI 10.1109/ECCE.2013.6646971)
+# # dolar_2013 = 2.15                                                                                             # Cotação do dolar na epoca (google)
+# # inflacao_acumulada = 2.0041                                                                                   # Inflacao acumulada entre a epoca e agora (fonte: ibge)
+# ppi_2013 = 59.5                                                                                                 # ppi da epoca
+# ppi_2026 = 61.058                                                                                               # ppi da epoca
+# ppi = ppi_2026 / ppi_2013                                                                                       # razao do ppi
+# preco_razao_elepot = (preco_elepot_referencia/1e3) * ppi                                                        # Razao USD/kW
 
+
+preco_razao_elepot = 10
 vetor_preco_razao_elepot = [5, 10, 20]
 
 
@@ -73,6 +75,9 @@ max_Nm_b = 28                                                       # Número ma
 min_Np_b = 0                                                        # Número mínimo de baterias em paralelo
 max_Np_b = 8                                                       # Número máximo de baterias em paralelo
 
+
+vetor_min_Nm_uc = [6, 11, 18]
+vetor_min_Nm_b = [8, 15, 22]
 # Definição dos parametros do problema
 cot_dolar = 5.30                                                   # 22/07/2025
 vetor_cot_dolar = [4.58, 5.30, 6.31]                                # Vetor de variacao da cotação do dolar
@@ -100,7 +105,7 @@ Cap_uc = 280.0                                                      # Capacidade
 T_xuc = 8                                                           # Multiplicador da capacidade do supercapacitor
 vetor_T_xuc = variacao * T_xuc                                      # Vetor de sensibilidade da capacidade do supercapacitor
 
-arquivo = "AGREGADOR ANALYSIS.xlsx"
+arquivo = "CR-3112_28-09-24_AGGREGATED.xlsx"
 diretorio_figuras = "Figuras/" + arquivo.split(".")[0]
 arquivo_excel = diretorio_figuras + "/" f"{arquivo.split(".")[0]}_sensibilidade.xlsx"
 os.makedirs(diretorio_figuras, exist_ok=True)
@@ -118,7 +123,7 @@ algorithm = NSGA2(
 )
 
 
-termination = get_termination("n_gen", 30)
+termination = get_termination("n_gen", 35)
 
 print(f"Preço do diesel: {preco_diesel} R$    ;       Variação: {vetor_preco_diesel}")
 print(f"Cotação do dolar: {cot_dolar} R$/USD  ;       Variação: {vetor_cot_dolar}")
@@ -128,17 +133,20 @@ print(f"Preço supercapacitor: {Puc_usd} USD   ;       Variação: {vetor_Puc_us
 print(f"C-rate da bateria: {T_xb} C   ;       Variação: {vetor_T_xb}")
 
 
-columns_df = ["Parametro variado", "Preco Diesel [R$]", "Cotacao Dolar", "Preco Razao Elepot [USD]", "Preco R.E. Cor. Dolar [R$]",  "Preco Bat [USD]", "Preco Bat Cor. Dolar [R$]", "Preco UC [USD]", "Preco UC Cor. Dolar [R$]", "C-rate", "Nm,b", "Np,b","Nm,uc", "Np,uc", "Volume Total [L]", "Energia Total Bat. [kWh]", "Energia Total UC. [kWh]", "Energia Total [kWh]", "Pth [kW]", "VPL [R$]"]
+columns_df = ["Parametro variado", "Preco Diesel [R$]", "Cotacao Dolar", "Preco Razao Elepot [USD]", "Preco R.E. Cor. Dolar [R$]",  "Preco Bat [USD]", "Preco Bat Cor. Dolar [R$]", "Preco UC [USD]", "Preco UC Cor. Dolar [R$]", "C-rate", "Nm_b min", "Nm_uc min", "Nm,b", "Np,b","Nm,uc", "Np,uc", "Volume Total [L]", "Energia Total Bat. [kWh]", "Energia Total UC. [kWh]", "Energia Total [kWh]", "Pth [kW]", "VPL [R$]"]
 
 # Valores de referência (baseline): um parâmetro por vez varia, os demais ficam nesses valores
 baseline = {
     "Preco Diesel"       : preco_diesel,
     "Cotacao Dolar"      : cot_dolar,
-    "Preco Razao Elepot" : vetor_preco_razao_elepot[1],  # 10
+    "Preco Razao Elepot" : preco_razao_elepot,  # 10
     "Preco Bat"          : Pb_usd,
     "Preco UC"           : Puc_usd,
     "C-rate"             : T_xb,
+    "Nm_b min"           : min_Nm_b,
+    "Nm_uc min"          : min_Nm_uc
 }
+
 # Cada parâmetro e seu vetor de variação (one-at-a-time)
 # Exclui o valor do meio de cada vetor (já rodado na simulação original / baseline)
 def _vetor_sem_meio(vetor):
@@ -156,6 +164,8 @@ variaveis_sensibilidade = [
     ("Preco Bat", vetor_Pb_uds),
     ("Preco UC", vetor_Puc_usd),
     ("C-rate", vetor_T_xb),
+    ("Nm_b min",  vetor_min_Nm_b),
+    ("Nm_uc min", vetor_min_Nm_uc)
 ]
 # Verifica se o arquivo existe
 if not os.path.exists(arquivo_excel):
@@ -169,51 +179,6 @@ else:
         df.insert(0, "Parametro variado", "")
 
 
-
-def definitions():
-
-    # ------------------------------------------------------
-    # ----------------------- Diesel -----------------------
-    # ------------------------------------------------------
-    preco_diesel = 5.78
-    vetor_preco_diesel = [3.69, 5.78, 7.46]                                                                         # R$/litro
-
-    # ------------------------------------------------------
-    # ----------------------- Elepot -----------------------
-    # ------------------------------------------------------
-    preco_razao_elepot = 10
-    vetor_preco_razao_elepot = [5, 10, 20]
-
-    # ------------------------------------------------------
-    # ----------------------- Dolar ------------------------
-    # ------------------------------------------------------
-    cot_dolar = 5.30                                                   # 22/07/2025
-    vetor_cot_dolar = [4.58, 5.30, 6.31]                                # Vetor de variacao da cotação do dolar
-    
-    # ------------------------------------------------------
-    # ----------------------- Bateria ----------------------
-    # ------------------------------------------------------
-    Pb_usd = 12.8                                                      # Preço da bateria em dolares (Fonte: data_sources.xlsx)
-    vetor_Pb_uds = [6.4, 12.8, 34.688]                                    # Vetor de sensibilidade do preço da bateria em dolares
-    
-    # ------------------------------------------------------
-    # ------------------- Supercapacitor -------------------
-    # ------------------------------------------------------
-    Puc_usd = 9.75                                                     # Preço do supercapacitor em dolares (Fonte: data_sources.xlsx)
-    vetor_Puc_usd = [5.85, 9.75, 13.65]                                  # Vetor de sensibilidade do preço do supercapacitor em dolares
-
-    # ------------------------------------------------------
-    # --------------------- C-Rate Bat ---------------------
-    # ------------------------------------------------------
-    T_xb = 6                                                            # Multiplicador da capacidade da bateria
-    vetor_T_xb = [2, 6, 10]                                             # Vetor de sensibilidade da capacidade da bateria
-
-
-
-
-
-
-
 # Sensibilidade one-at-a-time: varia um parâmetro por vez, demais em baseline (sem o valor do meio)
 for param_nome, vetor_valores in variaveis_sensibilidade:
     valores_a_rodar = _vetor_sem_meio(vetor_valores)
@@ -221,12 +186,14 @@ for param_nome, vetor_valores in variaveis_sensibilidade:
         sensibilidade_input = dict(baseline)
         sensibilidade_input[param_nome] = valor
 
-        preco_diesel    = sensibilidade_input["Preco Diesel"]
-        cot_dolar       = sensibilidade_input["Cotacao Dolar"]
-        preco_razao_elepot = sensibilidade_input["Preco Razao Elepot"]
-        Pb_usd          = sensibilidade_input["Preco Bat"]
-        Puc_usd         = sensibilidade_input["Preco UC"]
-        T_xb            = sensibilidade_input["C-rate"]
+        preco_diesel        = sensibilidade_input["Preco Diesel"]
+        cot_dolar           = sensibilidade_input["Cotacao Dolar"]
+        preco_razao_elepot  = sensibilidade_input["Preco Razao Elepot"]
+        Pb_usd              = sensibilidade_input["Preco Bat"]
+        Puc_usd             = sensibilidade_input["Preco UC"]
+        T_xb                = sensibilidade_input["C-rate"]
+        min_Nm_b            = sensibilidade_input["Nm_b min"]
+        min_Nm_uc           = sensibilidade_input["Nm_uc min"]
 
         sensibilidade_cache = {"Parametro variado"               :   param_nome,
                                "Preco Diesel [R$]"              :   None,
@@ -238,6 +205,8 @@ for param_nome, vetor_valores in variaveis_sensibilidade:
                                "Preco UC [USD]"                 :   None,
                                "Preco UC Cor. Dolar [R$]"       :   None,
                                "C-rate"                         :   None,
+                               "Nm_b min"                       :   None,
+                               "Nm_uc min"                      :   None,
                                "Nm,b"                           :   None,
                                "Np,b"                           :   None,
                                "Nm,uc"                          :   None,
@@ -248,6 +217,18 @@ for param_nome, vetor_valores in variaveis_sensibilidade:
                                "Energia Total [kWh]"            :   None,
                                "Pth [kW]"                       :   None,
                                "VPL [R$]"                       :   None}
+        
+        # print(df)
+
+        # print(f"""({df["Parametro variado"]} == {param_nome}) &
+        #           ({df["Preco Diesel [R$]"]} == {preco_diesel}) &
+        #           ({df["Cotacao Dolar"]} == {cot_dolar}) &
+        #           ({df["Preco Razao Elepot [USD]"]} == {preco_razao_elepot}) &
+        #           ({df["Preco Bat [USD]"]} == {Pb_usd}) &
+        #           ({df["Preco UC [USD]"]} == {Puc_usd}) &
+        #           ({df["C-rate"]} == {T_xb}) &
+        #           ({df["Nm_b min"]} == {min_Nm_b}) & 
+        #           ({df["Nm_uc min"]} == {min_Nm_uc}) """)
 
         filtro = (
             (df["Parametro variado"] == param_nome) &
@@ -256,8 +237,11 @@ for param_nome, vetor_valores in variaveis_sensibilidade:
             (df["Preco Razao Elepot [USD]"] == preco_razao_elepot) &
             (df["Preco Bat [USD]"] == Pb_usd) &
             (df["Preco UC [USD]"] == Puc_usd) &
-            (df["C-rate"] == T_xb)
+            (df["C-rate"] == T_xb) &
+            (df["Nm_b min"] == min_Nm_b) & 
+            (df["Nm_uc min"] == min_Nm_uc) 
         )
+        # print(filtro)
 
         if filtro.any():
             print("Já existe, pulando:", param_nome, "=", valor)
@@ -323,6 +307,8 @@ for param_nome, vetor_valores in variaveis_sensibilidade:
         sensibilidade_cache["Preco UC [USD]"] = Puc_usd
         sensibilidade_cache["Preco UC Cor. Dolar [R$]"] = Puc_usd * cot_dolar
         sensibilidade_cache["C-rate"] = T_xb
+        sensibilidade_cache["Nm_b min"] = min_Nm_b
+        sensibilidade_cache["Nm_uc min"] = min_Nm_uc
         sensibilidade_cache["Nm,b"] = best_Nm_b
         sensibilidade_cache["Np,b"] = best_Np_b
         sensibilidade_cache["Nm,uc"] = best_Nm_uc
