@@ -105,7 +105,7 @@ Cap_uc = 280.0                                                      # Capacidade
 T_xuc = 8                                                           # Multiplicador da capacidade do supercapacitor
 vetor_T_xuc = variacao * T_xuc                                      # Vetor de sensibilidade da capacidade do supercapacitor
 
-arquivo = "CR-3112_28-09-24_AGGREGATED.xlsx"
+arquivo = "UMAX_18-10-24.xlsx"
 diretorio_figuras = "Figuras/" + arquivo.split(".")[0]
 arquivo_excel = diretorio_figuras + "/" f"{arquivo.split(".")[0]}_sensibilidade.xlsx"
 os.makedirs(diretorio_figuras, exist_ok=True)
@@ -178,7 +178,9 @@ else:
     if "Parametro variado" not in df.columns:
         df.insert(0, "Parametro variado", "")
 
-
+SoC_uc_ref = 50
+BH = 4
+Taxa = 0.5
 # Sensibilidade one-at-a-time: varia um parâmetro por vez, demais em baseline (sem o valor do meio)
 for param_nome, vetor_valores in variaveis_sensibilidade:
     valores_a_rodar = _vetor_sem_meio(vetor_valores)
@@ -249,9 +251,7 @@ for param_nome, vetor_valores in variaveis_sensibilidade:
 
         print("Novo caso, calculando:", sensibilidade_input)
 
-        SoC_uc_ref = 50
-        BH = 4
-        Taxa = 0.5
+       
 
         problem = MyProblem()
         problem.setData(data, sheet)
@@ -325,20 +325,316 @@ for param_nome, vetor_valores in variaveis_sensibilidade:
         res.G = None
 
         df = pd.concat([df, pd.DataFrame([sensibilidade_cache])], ignore_index=True)
-        df.to_excel(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_sensibilidade.xlsx", columns=columns_df)
+        df.to_excel(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_sensibilidade.xlsx", columns=columns_df, index=False)
 
 
+# Configuração fixa a ser avaliada (usada no "Caso base" e nos cenários de config ótima)
+CONFIG_OTIMA = {
+    "Nm_b": 28,
+    "Np_b": 4,
+    "Nm_uc": 21,
+    "Np_uc": 1,
+    "Pth": 1375  # [kW]
+}
+
+# Incluir "Caso base" (CONFIG_OTIMA com parâmetros padrão) na tabela de sensibilidade, se ainda não existir
+# Usa apenas _evaluate (sem otimização), igual ao bloco da config ótima por cenário
+if not (df["Parametro variado"] == "Caso base").any():
+    print("Incluindo Caso base (config ótima com parâmetros padrão) em _sensibilidade.xlsx...")
+    sensibilidade_input_base = dict(baseline)
+    preco_diesel_b = sensibilidade_input_base["Preco Diesel"]
+    cot_dolar_b = sensibilidade_input_base["Cotacao Dolar"]
+    preco_razao_elepot_b = sensibilidade_input_base["Preco Razao Elepot"]
+    Pb_usd_b = sensibilidade_input_base["Preco Bat"]
+    Puc_usd_b = sensibilidade_input_base["Preco UC"]
+    T_xb_b = sensibilidade_input_base["C-rate"]
+    min_Nm_b_base = sensibilidade_input_base["Nm_b min"]
+    min_Nm_uc_base = sensibilidade_input_base["Nm_uc min"]
+    problem_base_sens = MyProblem()
+    problem_base_sens.setData(data, sheet)
+    problem_base_sens.setParams(sensibilidade_input_base)
+    problem_base_sens.configFluxUC2Bat(SoC_uc_ref, BH, Taxa)
+    x_fixo_b = np.array([
+        CONFIG_OTIMA["Nm_b"],
+        CONFIG_OTIMA["Np_b"],
+        CONFIG_OTIMA["Nm_uc"],
+        CONFIG_OTIMA["Np_uc"],
+        CONFIG_OTIMA["Pth"] / step_pth
+    ])
+    out_b = {}
+    problem_base_sens._evaluate(x_fixo_b, out_b)
+    vpl_b = -out_b["F"][0]
+    best_Nm_b_b = CONFIG_OTIMA["Nm_b"]
+    best_Np_b_b = CONFIG_OTIMA["Np_b"]
+    best_Nm_uc_b = CONFIG_OTIMA["Nm_uc"]
+    best_Np_uc_b = CONFIG_OTIMA["Np_uc"]
+    best_Pth_b = CONFIG_OTIMA["Pth"]
+    total_bat_b = 16 * best_Nm_b_b * best_Np_b_b
+    total_uc_b = 16 * best_Nm_uc_b * best_Np_uc_b
+    energia_bat_b = 0.128 * total_bat_b
+    energia_sc_b = 0.0039 * total_uc_b
+    volume_total_b = (0.596 * total_bat_b) + (0.496 * total_uc_b)
+    energia_total_b = energia_bat_b + energia_sc_b
+    cache_base = {
+        "Parametro variado": "Caso base",
+        "Preco Diesel [R$]": preco_diesel_b,
+        "Cotacao Dolar": cot_dolar_b,
+        "Preco Razao Elepot [USD]": preco_razao_elepot_b,
+        "Preco R.E. Cor. Dolar [R$]": preco_razao_elepot_b * cot_dolar_b,
+        "Preco Bat [USD]": Pb_usd_b,
+        "Preco Bat Cor. Dolar [R$]": Pb_usd_b * cot_dolar_b,
+        "Preco UC [USD]": Puc_usd_b,
+        "Preco UC Cor. Dolar [R$]": Puc_usd_b * cot_dolar_b,
+        "C-rate": T_xb_b,
+        "Nm_b min": min_Nm_b_base,
+        "Nm_uc min": min_Nm_uc_base,
+        "Nm,b": best_Nm_b_b,
+        "Np,b": best_Np_b_b,
+        "Nm,uc": best_Nm_uc_b,
+        "Np,uc": best_Np_uc_b,
+        "Volume Total [L]": volume_total_b,
+        "Energia Total Bat. [kWh]": energia_bat_b,
+        "Energia Total UC. [kWh]": energia_sc_b,
+        "Energia Total [kWh]": energia_total_b,
+        "Pth [kW]": best_Pth_b,
+        "VPL [R$]": vpl_b,
+    }
+    df = pd.concat([df, pd.DataFrame([cache_base])], ignore_index=True)
+    df.to_excel(diretorio_figuras + "/" f"{arquivo.split('.')[0]}_sensibilidade.xlsx", columns=columns_df, index=False)
 
 
+# ----------------------------------------------------------------------------------------------------------------------
+# Avaliação de uma configuração específica (fixa) em todos os cenários de sensibilidade
+# ----------------------------------------------------------------------------------------------------------------------
+
+arquivo_excel_config = diretorio_figuras + "/" f"{arquivo.split('.')[0]}_sensibilidade_configuracao_otima.xlsx"
+
+if not os.path.exists(arquivo_excel_config):
+    df_config = pd.DataFrame(columns=columns_df)
+    df_config.to_excel(arquivo_excel_config, index=False)
+else:
+    df_config = pd.read_excel(arquivo_excel_config)
+
+SoC_uc_ref = 50
+BH = 4
+Taxa = 0.5
+
+for param_nome, vetor_valores in variaveis_sensibilidade:
+    valores_a_rodar = _vetor_sem_meio(vetor_valores)
+    for valor in valores_a_rodar:
+        sensibilidade_input = dict(baseline)
+        sensibilidade_input[param_nome] = valor
+
+        preco_diesel        = sensibilidade_input["Preco Diesel"]
+        cot_dolar           = sensibilidade_input["Cotacao Dolar"]
+        preco_razao_elepot  = sensibilidade_input["Preco Razao Elepot"]
+        Pb_usd              = sensibilidade_input["Preco Bat"]
+        Puc_usd             = sensibilidade_input["Preco UC"]
+        T_xb                = sensibilidade_input["C-rate"]
+        min_Nm_b            = sensibilidade_input["Nm_b min"]
+        min_Nm_uc           = sensibilidade_input["Nm_uc min"]
+
+        filtro_cfg = (
+            (df_config["Parametro variado"] == param_nome) &
+            (df_config["Preco Diesel [R$]"] == preco_diesel) &
+            (df_config["Cotacao Dolar"] == cot_dolar) &
+            (df_config["Preco Razao Elepot [USD]"] == preco_razao_elepot) &
+            (df_config["Preco Bat [USD]"] == Pb_usd) &
+            (df_config["Preco UC [USD]"] == Puc_usd) &
+            (df_config["C-rate"] == T_xb) &
+            (df_config["Nm_b min"] == min_Nm_b) &
+            (df_config["Nm_uc min"] == min_Nm_uc)
+        )
+
+        if filtro_cfg.any():
+            print("Configuração ótima já existe, pulando:", param_nome, "=", valor)
+            continue
+
+        print("Novo caso (configuração ótima), calculando:", sensibilidade_input)
+
+        problem_caso = MyProblem()
+        problem_caso.setData(data, sheet)
+        problem_caso.setParams(sensibilidade_input)
+        problem_caso.configFluxUC2Bat(SoC_uc_ref, BH, Taxa)
+
+        x_fixo = np.array([
+            CONFIG_OTIMA["Nm_b"],
+            CONFIG_OTIMA["Np_b"],
+            CONFIG_OTIMA["Nm_uc"],
+            CONFIG_OTIMA["Np_uc"],
+            CONFIG_OTIMA["Pth"] / step_pth
+        ])
+
+        out = {}
+        problem_caso._evaluate(x_fixo, out)
+        vpl = -out["F"][0]
+
+        best_Nm_b = CONFIG_OTIMA["Nm_b"]
+        best_Np_b = CONFIG_OTIMA["Np_b"]
+        best_Nm_uc = CONFIG_OTIMA["Nm_uc"]
+        best_Np_uc = CONFIG_OTIMA["Np_uc"]
+        best_Pth = CONFIG_OTIMA["Pth"]
+
+        total_bat = 16 * best_Nm_b * best_Np_b
+        total_uc  = 16 * best_Nm_uc * best_Np_uc
+        energia_bat = 0.128 * total_bat
+        energia_sc = 0.0039 * total_uc
+        volume_total = (0.596 * total_bat) + (0.496 * total_uc)
+        energia_total = energia_bat + energia_sc
+
+        sensibilidade_cfg = {
+            "Parametro variado"               : param_nome,
+            "Preco Diesel [R$]"              : preco_diesel,
+            "Cotacao Dolar"                  : cot_dolar,
+            "Preco Razao Elepot [USD]"       : preco_razao_elepot,
+            "Preco R.E. Cor. Dolar [R$]"     : preco_razao_elepot * cot_dolar,
+            "Preco Bat [USD]"                : Pb_usd,
+            "Preco Bat Cor. Dolar [R$]"      : Pb_usd * cot_dolar,
+            "Preco UC [USD]"                 : Puc_usd,
+            "Preco UC Cor. Dolar [R$]"       : Puc_usd * cot_dolar,
+            "C-rate"                         : T_xb,
+            "Nm_b min"                       : min_Nm_b,
+            "Nm_uc min"                      : min_Nm_uc,
+            "Nm,b"                           : best_Nm_b,
+            "Np,b"                           : best_Np_b,
+            "Nm,uc"                          : best_Nm_uc,
+            "Np,uc"                          : best_Np_uc,
+            "Volume Total [L]"               : volume_total,
+            "Energia Total Bat. [kWh]"       : energia_bat,
+            "Energia Total UC. [kWh]"        : energia_sc,
+            "Energia Total [kWh]"            : energia_total,
+            "Pth [kW]"                       : best_Pth,
+            "VPL [R$]"                       : vpl
+        }
+
+        df_config = pd.concat([df_config, pd.DataFrame([sensibilidade_cfg])], ignore_index=True)
+        df_config.to_excel(arquivo_excel_config, columns=columns_df, index=False)
 
 
-# df = pd.DataFrame(sensibilidade_cache, columns = columns_df)
-# df.to_excel(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_sensibilidade.xlsx", columns=columns_df)
+# ----------------------------------------------------------------------------------------------------------------------
+# Tabela de comparação: caso base (config ótima com parâmetros padrão [1]) vs cenários (com % de variação)
+# ----------------------------------------------------------------------------------------------------------------------
 
-# print(df)
+# Parâmetros padrão = posição [1] em cada vetor (mesmo que baseline)
+params_padrao = dict(baseline)
 
-# try:
-#     print(f'Arquivo: {arquivo}')
-# except:
-#     pass
-    
+problem_base = MyProblem()
+problem_base.setData(data, sheet)
+problem_base.setParams(params_padrao)
+problem_base.configFluxUC2Bat(SoC_uc_ref, BH, Taxa)
+x_fixo = np.array([
+    CONFIG_OTIMA["Nm_b"],
+    CONFIG_OTIMA["Np_b"],
+    CONFIG_OTIMA["Nm_uc"],
+    CONFIG_OTIMA["Np_uc"],
+    CONFIG_OTIMA["Pth"] / step_pth
+])
+out_base = {}
+problem_base._evaluate(x_fixo, out_base)
+vpl_base = -out_base["F"][0]
+
+preco_diesel_p = params_padrao["Preco Diesel"]
+cot_dolar_p = params_padrao["Cotacao Dolar"]
+preco_razao_elepot_p = params_padrao["Preco Razao Elepot"]
+Pb_usd_p = params_padrao["Preco Bat"]
+Puc_usd_p = params_padrao["Preco UC"]
+T_xb_p = params_padrao["C-rate"]
+min_Nm_b_p = params_padrao["Nm_b min"]
+min_Nm_uc_p = params_padrao["Nm_uc min"]
+
+total_bat_b = 16 * CONFIG_OTIMA["Nm_b"] * CONFIG_OTIMA["Np_b"]
+total_uc_b = 16 * CONFIG_OTIMA["Nm_uc"] * CONFIG_OTIMA["Np_uc"]
+energia_bat_b = 0.128 * total_bat_b
+energia_sc_b = 0.0039 * total_uc_b
+volume_total_b = (0.596 * total_bat_b) + (0.496 * total_uc_b)
+energia_total_b = energia_bat_b + energia_sc_b
+
+caso_base_row = {
+    "Parametro variado"               : "Caso base",
+    "Preco Diesel [R$]"              : preco_diesel_p,
+    "Cotacao Dolar"                  : cot_dolar_p,
+    "Preco Razao Elepot [USD]"       : preco_razao_elepot_p,
+    "Preco R.E. Cor. Dolar [R$]"     : preco_razao_elepot_p * cot_dolar_p,
+    "Preco Bat [USD]"                : Pb_usd_p,
+    "Preco Bat Cor. Dolar [R$]"      : Pb_usd_p * cot_dolar_p,
+    "Preco UC [USD]"                 : Puc_usd_p,
+    "Preco UC Cor. Dolar [R$]"       : Puc_usd_p * cot_dolar_p,
+    "C-rate"                         : T_xb_p,
+    "Nm_b min"                       : min_Nm_b_p,
+    "Nm_uc min"                      : min_Nm_uc_p,
+    "Nm,b"                           : CONFIG_OTIMA["Nm_b"],
+    "Np,b"                           : CONFIG_OTIMA["Np_b"],
+    "Nm,uc"                          : CONFIG_OTIMA["Nm_uc"],
+    "Np,uc"                          : CONFIG_OTIMA["Np_uc"],
+    "Volume Total [L]"               : volume_total_b,
+    "Energia Total Bat. [kWh]"        : energia_bat_b,
+    "Energia Total UC. [kWh]"         : energia_sc_b,
+    "Energia Total [kWh]"             : energia_total_b,
+    "Pth [kW]"                       : CONFIG_OTIMA["Pth"],
+    "VPL [R$]"                       : vpl_base
+}
+
+def _fmt_celula_comparacao(val, base_val, col):
+    """Formata valor com percentual de variação em relação ao caso base (↑ ou ↓)."""
+    if col == "Parametro variado":
+        return val
+    base_num = base_val
+    try:
+        v = float(val)
+        b = float(base_num)
+    except (TypeError, ValueError):
+        return val
+    if v == b:
+        return val
+    if b == 0:
+        return f"{v} (↑ --%)" if v > 0 else f"{v} (↓ --%)"
+    pct = (v - b) / b * 100
+    if pct > 0:
+        return f"{v} (↑ {pct:.1f}%)"
+    return f"{v} (↓ {-pct:.1f}%)"
+
+# Montar tabela: primeira linha = caso base; demais = df_config com células com % quando diferente do base
+linhas_comparacao = [caso_base_row]
+for _, row in df_config.iterrows():
+    nova_linha = {}
+    for col in columns_df:
+        base_val = caso_base_row[col]
+        val = row[col]
+        nova_linha[col] = _fmt_celula_comparacao(val, base_val, col)
+    linhas_comparacao.append(nova_linha)
+
+df_comparacao = pd.DataFrame(linhas_comparacao)
+arquivo_comparacao = diretorio_figuras + "/" + arquivo.split(".")[0] + "_sensibilidade_comparacao.xlsx"
+df_comparacao.to_excel(arquivo_comparacao, index=False, columns=columns_df)
+print(f"Tabela de comparação salva em: {arquivo_comparacao}")
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Tabela de comparação ÓTIMOS: caso base = config ótima com params padrão; linhas = config ótima por cenário (com %)
+# Lê o caso base da tabela _sensibilidade.xlsx (evita rodar a otimização de novo).
+# ----------------------------------------------------------------------------------------------------------------------
+
+df_sens = pd.read_excel(arquivo_excel)
+tem_caso_base = (df_sens["Parametro variado"] == "Caso base").any()
+if tem_caso_base:
+    caso_base_otimo_row = df_sens.loc[df_sens["Parametro variado"] == "Caso base"].iloc[0].to_dict()
+    df_resto = df_sens[df_sens["Parametro variado"] != "Caso base"]
+else:
+    caso_base_otimo_row = None
+    df_resto = df_sens
+
+if caso_base_otimo_row is not None:
+    linhas_comparacao_otimos = [caso_base_otimo_row]
+    for _, row in df_resto.iterrows():
+        nova_linha = {}
+        for col in columns_df:
+            base_val = caso_base_otimo_row[col]
+            val = row[col]
+            nova_linha[col] = _fmt_celula_comparacao(val, base_val, col)
+        linhas_comparacao_otimos.append(nova_linha)
+    df_comparacao_otimos = pd.DataFrame(linhas_comparacao_otimos)
+    arquivo_comparacao_otimos = diretorio_figuras + "/" + arquivo.split(".")[0] + "_sensibilidade_comparacao_otimos.xlsx"
+    df_comparacao_otimos.to_excel(arquivo_comparacao_otimos, index=False, columns=columns_df)
+    print(f"Tabela de comparação (ótimos) salva em: {arquivo_comparacao_otimos}")
+else:
+    print("Aviso: 'Caso base' não encontrado em _sensibilidade.xlsx. Rode a sensibilidade antes para gerar a tabela de ótimos.")
