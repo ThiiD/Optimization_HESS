@@ -105,7 +105,7 @@ Cap_uc = 280.0                                                      # Capacidade
 T_xuc = 8                                                           # Multiplicador da capacidade do supercapacitor
 vetor_T_xuc = variacao * T_xuc                                      # Vetor de sensibilidade da capacidade do supercapacitor
 
-arquivo = "UMAX_18-10-24.xlsx"
+arquivo = "AGREGADOR ANALYSIS.xlsx"
 diretorio_figuras = "Figuras/" + arquivo.split(".")[0]
 arquivo_excel = diretorio_figuras + "/" f"{arquivo.split(".")[0]}_sensibilidade.xlsx"
 os.makedirs(diretorio_figuras, exist_ok=True)
@@ -123,7 +123,7 @@ algorithm = NSGA2(
 )
 
 
-termination = get_termination("n_gen", 35)
+termination = get_termination("n_gen", 50)
 
 print(f"Preço do diesel: {preco_diesel} R$    ;       Variação: {vetor_preco_diesel}")
 print(f"Cotação do dolar: {cot_dolar} R$/USD  ;       Variação: {vetor_cot_dolar}")
@@ -177,6 +177,85 @@ else:
     df = pd.read_excel(arquivo_excel)
     if "Parametro variado" not in df.columns:
         df.insert(0, "Parametro variado", "")
+
+# Configuração fixa a ser avaliada (usada no "Caso base" e nos cenários de config ótima)
+CONFIG_OTIMA = {
+    "Nm_b": 27,
+    "Np_b": 5,
+    "Nm_uc": 11,
+    "Np_uc": 1,
+    "Pth": 1525  # [kW]
+}
+
+SoC_uc_ref = 50
+BH = 4
+Taxa = 0.5
+
+
+# Incluir "Caso base" (CONFIG_OTIMA com parâmetros padrão) na tabela de sensibilidade, se ainda não existir
+# Usa apenas _evaluate (sem otimização), igual ao bloco da config ótima por cenário
+if not (df["Parametro variado"] == "Caso base").any():
+    print("Incluindo Caso base (config ótima com parâmetros padrão) em _sensibilidade.xlsx...")
+    sensibilidade_input_base = dict(baseline)
+    preco_diesel_b = sensibilidade_input_base["Preco Diesel"]
+    cot_dolar_b = sensibilidade_input_base["Cotacao Dolar"]
+    preco_razao_elepot_b = sensibilidade_input_base["Preco Razao Elepot"]
+    Pb_usd_b = sensibilidade_input_base["Preco Bat"]
+    Puc_usd_b = sensibilidade_input_base["Preco UC"]
+    T_xb_b = sensibilidade_input_base["C-rate"]
+    min_Nm_b_base = sensibilidade_input_base["Nm_b min"]
+    min_Nm_uc_base = sensibilidade_input_base["Nm_uc min"]
+    problem_base_sens = MyProblem()
+    problem_base_sens.setData(data, sheet)
+    problem_base_sens.setParams(sensibilidade_input_base)
+    problem_base_sens.configFluxUC2Bat(SoC_uc_ref, BH, Taxa)
+    x_fixo_b = np.array([
+        CONFIG_OTIMA["Nm_b"],
+        CONFIG_OTIMA["Np_b"],
+        CONFIG_OTIMA["Nm_uc"],
+        CONFIG_OTIMA["Np_uc"],
+        CONFIG_OTIMA["Pth"] / step_pth
+    ])
+    out_b = {}
+    problem_base_sens._evaluate(x_fixo_b, out_b)
+    vpl_b = -out_b["F"][0]
+    best_Nm_b_b = CONFIG_OTIMA["Nm_b"]
+    best_Np_b_b = CONFIG_OTIMA["Np_b"]
+    best_Nm_uc_b = CONFIG_OTIMA["Nm_uc"]
+    best_Np_uc_b = CONFIG_OTIMA["Np_uc"]
+    best_Pth_b = CONFIG_OTIMA["Pth"]
+    total_bat_b = 16 * best_Nm_b_b * best_Np_b_b
+    total_uc_b = 16 * best_Nm_uc_b * best_Np_uc_b
+    energia_bat_b = 0.128 * total_bat_b
+    energia_sc_b = 0.0039 * total_uc_b
+    volume_total_b = (0.596 * total_bat_b) + (0.496 * total_uc_b)
+    energia_total_b = energia_bat_b + energia_sc_b
+    cache_base = {
+        "Parametro variado": "Caso base",
+        "Preco Diesel [R$]": preco_diesel_b,
+        "Cotacao Dolar": cot_dolar_b,
+        "Preco Razao Elepot [USD]": preco_razao_elepot_b,
+        "Preco R.E. Cor. Dolar [R$]": preco_razao_elepot_b * cot_dolar_b,
+        "Preco Bat [USD]": Pb_usd_b,
+        "Preco Bat Cor. Dolar [R$]": Pb_usd_b * cot_dolar_b,
+        "Preco UC [USD]": Puc_usd_b,
+        "Preco UC Cor. Dolar [R$]": Puc_usd_b * cot_dolar_b,
+        "C-rate": T_xb_b,
+        "Nm_b min": min_Nm_b_base,
+        "Nm_uc min": min_Nm_uc_base,
+        "Nm,b": best_Nm_b_b,
+        "Np,b": best_Np_b_b,
+        "Nm,uc": best_Nm_uc_b,
+        "Np,uc": best_Np_uc_b,
+        "Volume Total [L]": volume_total_b,
+        "Energia Total Bat. [kWh]": energia_bat_b,
+        "Energia Total UC. [kWh]": energia_sc_b,
+        "Energia Total [kWh]": energia_total_b,
+        "Pth [kW]": best_Pth_b,
+        "VPL [R$]": vpl_b,
+    }
+    df = pd.concat([df, pd.DataFrame([cache_base])], ignore_index=True)
+    df.to_excel(diretorio_figuras + "/" f"{arquivo.split('.')[0]}_sensibilidade.xlsx", columns=columns_df, index=True)
 
 SoC_uc_ref = 50
 BH = 4
@@ -325,82 +404,10 @@ for param_nome, vetor_valores in variaveis_sensibilidade:
         res.G = None
 
         df = pd.concat([df, pd.DataFrame([sensibilidade_cache])], ignore_index=True)
-        df.to_excel(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_sensibilidade.xlsx", columns=columns_df, index=False)
+        df.to_excel(diretorio_figuras + "/" f"{arquivo.split(".")[0]}_sensibilidade.xlsx", columns=columns_df, index=True)
 
 
-# Configuração fixa a ser avaliada (usada no "Caso base" e nos cenários de config ótima)
-CONFIG_OTIMA = {
-    "Nm_b": 28,
-    "Np_b": 4,
-    "Nm_uc": 21,
-    "Np_uc": 1,
-    "Pth": 1375  # [kW]
-}
 
-# Incluir "Caso base" (CONFIG_OTIMA com parâmetros padrão) na tabela de sensibilidade, se ainda não existir
-# Usa apenas _evaluate (sem otimização), igual ao bloco da config ótima por cenário
-if not (df["Parametro variado"] == "Caso base").any():
-    print("Incluindo Caso base (config ótima com parâmetros padrão) em _sensibilidade.xlsx...")
-    sensibilidade_input_base = dict(baseline)
-    preco_diesel_b = sensibilidade_input_base["Preco Diesel"]
-    cot_dolar_b = sensibilidade_input_base["Cotacao Dolar"]
-    preco_razao_elepot_b = sensibilidade_input_base["Preco Razao Elepot"]
-    Pb_usd_b = sensibilidade_input_base["Preco Bat"]
-    Puc_usd_b = sensibilidade_input_base["Preco UC"]
-    T_xb_b = sensibilidade_input_base["C-rate"]
-    min_Nm_b_base = sensibilidade_input_base["Nm_b min"]
-    min_Nm_uc_base = sensibilidade_input_base["Nm_uc min"]
-    problem_base_sens = MyProblem()
-    problem_base_sens.setData(data, sheet)
-    problem_base_sens.setParams(sensibilidade_input_base)
-    problem_base_sens.configFluxUC2Bat(SoC_uc_ref, BH, Taxa)
-    x_fixo_b = np.array([
-        CONFIG_OTIMA["Nm_b"],
-        CONFIG_OTIMA["Np_b"],
-        CONFIG_OTIMA["Nm_uc"],
-        CONFIG_OTIMA["Np_uc"],
-        CONFIG_OTIMA["Pth"] / step_pth
-    ])
-    out_b = {}
-    problem_base_sens._evaluate(x_fixo_b, out_b)
-    vpl_b = -out_b["F"][0]
-    best_Nm_b_b = CONFIG_OTIMA["Nm_b"]
-    best_Np_b_b = CONFIG_OTIMA["Np_b"]
-    best_Nm_uc_b = CONFIG_OTIMA["Nm_uc"]
-    best_Np_uc_b = CONFIG_OTIMA["Np_uc"]
-    best_Pth_b = CONFIG_OTIMA["Pth"]
-    total_bat_b = 16 * best_Nm_b_b * best_Np_b_b
-    total_uc_b = 16 * best_Nm_uc_b * best_Np_uc_b
-    energia_bat_b = 0.128 * total_bat_b
-    energia_sc_b = 0.0039 * total_uc_b
-    volume_total_b = (0.596 * total_bat_b) + (0.496 * total_uc_b)
-    energia_total_b = energia_bat_b + energia_sc_b
-    cache_base = {
-        "Parametro variado": "Caso base",
-        "Preco Diesel [R$]": preco_diesel_b,
-        "Cotacao Dolar": cot_dolar_b,
-        "Preco Razao Elepot [USD]": preco_razao_elepot_b,
-        "Preco R.E. Cor. Dolar [R$]": preco_razao_elepot_b * cot_dolar_b,
-        "Preco Bat [USD]": Pb_usd_b,
-        "Preco Bat Cor. Dolar [R$]": Pb_usd_b * cot_dolar_b,
-        "Preco UC [USD]": Puc_usd_b,
-        "Preco UC Cor. Dolar [R$]": Puc_usd_b * cot_dolar_b,
-        "C-rate": T_xb_b,
-        "Nm_b min": min_Nm_b_base,
-        "Nm_uc min": min_Nm_uc_base,
-        "Nm,b": best_Nm_b_b,
-        "Np,b": best_Np_b_b,
-        "Nm,uc": best_Nm_uc_b,
-        "Np,uc": best_Np_uc_b,
-        "Volume Total [L]": volume_total_b,
-        "Energia Total Bat. [kWh]": energia_bat_b,
-        "Energia Total UC. [kWh]": energia_sc_b,
-        "Energia Total [kWh]": energia_total_b,
-        "Pth [kW]": best_Pth_b,
-        "VPL [R$]": vpl_b,
-    }
-    df = pd.concat([df, pd.DataFrame([cache_base])], ignore_index=True)
-    df.to_excel(diretorio_figuras + "/" f"{arquivo.split('.')[0]}_sensibilidade.xlsx", columns=columns_df, index=False)
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -415,9 +422,6 @@ if not os.path.exists(arquivo_excel_config):
 else:
     df_config = pd.read_excel(arquivo_excel_config)
 
-SoC_uc_ref = 50
-BH = 4
-Taxa = 0.5
 
 for param_nome, vetor_valores in variaveis_sensibilidade:
     valores_a_rodar = _vetor_sem_meio(vetor_valores)
