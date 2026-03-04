@@ -105,7 +105,7 @@ Cap_uc = 280.0                                                      # Capacidade
 T_xuc = 8                                                           # Multiplicador da capacidade do supercapacitor
 vetor_T_xuc = variacao * T_xuc                                      # Vetor de sensibilidade da capacidade do supercapacitor
 
-arquivo = "AGREGADOR ANALYSIS.xlsx"
+arquivo = "CR-3112_28-09-24_AGGREGATED.xlsx"
 diretorio_figuras = "Figuras/" + arquivo.split(".")[0]
 arquivo_excel = diretorio_figuras + "/" f"{arquivo.split(".")[0]}_sensibilidade.xlsx"
 os.makedirs(diretorio_figuras, exist_ok=True)
@@ -180,11 +180,11 @@ else:
 
 # Configuração fixa a ser avaliada (usada no "Caso base" e nos cenários de config ótima)
 CONFIG_OTIMA = {
-    "Nm_b": 27,
-    "Np_b": 5,
-    "Nm_uc": 11,
-    "Np_uc": 1,
-    "Pth": 1525  # [kW]
+    "Nm_b": 28,
+    "Np_b": 4,
+    "Nm_uc": 14,
+    "Np_uc": 3,
+    "Pth": 1600  # [kW]
 }
 
 SoC_uc_ref = 50
