@@ -9,7 +9,8 @@ class Uc():
         self._Ns = 40                                                               
         self._Np = 10                                                               
         self._Nm = 5                                                                
-        self._v_cap = 3                                                             
+        self._v_cap = 3   
+        self._Cap_uc = 280                                           
         
         self._SoC_max = 100                                                         
         self._SoC_min = 3                                                           
@@ -24,24 +25,28 @@ class Uc():
         self._stored_energy = 0.5 * self._C_eq * (self._v_banco**2)
         
         self._SoC = 50  # Estado de carga inicial (%)
+        self._C_rate = 8  # Valor padrão para taxa C do UC
 
-    def setParams(self, C: float, Ns: int, Np: int, Nm : int, Vnom: float, SoC: float) -> None:
+    def setParams(self, C: float, Cap_uc: float, Ns: int, Np: int, Nm : int, Vnom: float, SoC: float, C_rate: float = None) -> None:
         """Configura os parâmetros do banco de supercapacitores
         :param float C: Capacitância por célula (F)
+        :param float Cap_uc: Capacidade do supercapacitor (Ah)
         :param int Ns: Número de capacitores em série
         :param int Np: Número de strings em paralelo
         :param int Nm: Número de módulos em série
         :param float Vnom: Tensão nominal por célula (V)
         :param float SoC: Estado de carga inicial do banco (%)
+        :param float C_rate: Taxa C máxima permitida (opcional)
         :raises ValueError: Se os parâmetros forem inválidos
         """
-        if any(x <= 0 for x in [C, Ns, Np, Nm, Vnom]):
+        if any(x <= 0 for x in [C, Ns, Nm, Vnom]):
             raise ValueError("Todos os parâmetros devem ser positivos")
         
         if not 0 <= SoC <= 100:
             raise ValueError("SoC deve estar entre 0% e 100%")
 
         self._C = C
+        self._Cap_uc = Cap_uc
         self._Ns = Ns
         self._Np = Np
         self._Nm = Nm
@@ -55,11 +60,12 @@ class Uc():
 
         
         self._stored_energy = self._total_energy*(self._SoC/100)
-
-        self._v_banco = sqrt((2 * self._stored_energy) / self._C_eq)
-        
-        
-        
+        if self._Np == 0:
+            self._v_banco = 0
+        else:
+            self._v_banco = sqrt((2 * self._stored_energy) / self._C_eq)
+        if C_rate is not None:
+            self._C_rate = C_rate
 
     def energy2soc(self, energy: float) -> float:
         """
@@ -102,11 +108,15 @@ class Uc():
         :return float i_sat: Corrente (A)
         :return float p_reject: Potência rejeitada (kW)
         """
-        i = power / self._v_banco
-        i_max = 280 * self._Np                                      # Corrente maxima no banco de UC
-        i_sat = np.clip(i, -i_max, i_max)                           # Limita corrente em ambas direções
-        i_reject = i - i_sat                                        # Calcula corrente rejeitada
-        p_reject = (i_reject * self._v_banco) / 1000                # Calcula potência rejeitada
+        if self._Np == 0:                                               # Caso não haja banco de supercapacitores (Np == 0)
+            i_sat = 0                                                   # Corrente saturada é zerada
+            p_reject = power / 1000                                     # Rejeita toda a potência
+        else:                                                           # Caso haja banco de supercapacitores
+            i = power / self._v_banco                                   # Calculo da corrente inicial, sem limitação
+            i_max = self._C_rate * self._Cap_uc * self._Np              # Corrente máxima usando taxa C
+            i_sat = np.clip(i, -i_max, i_max)                           # Limita corrente em ambas direções
+            i_reject = i - i_sat                                        # Calcula corrente rejeitada
+            p_reject = (i_reject * self._v_banco) / 1000                # Calcula potência rejeitada
         return i_sat, p_reject
 
 
@@ -118,7 +128,7 @@ class Uc():
         return self._total_energy
     
     
-    def updateEnergy(self, current: float, dt: float) -> tuple[float, float, float, float]:
+    def updateEnergy(self, current: float, dt: float) -> tuple[float, float, float, float, float]:
         """
         Atualiza energia do banco usando a corrente
         :param float current: Corrente do banco (A, + carga, - descarga)
@@ -126,43 +136,78 @@ class Uc():
         :return tuple[float, float]: (Tensão do banco, Energia armazenada)
         :return float p_reject: Potência rejeitada (kW)
         :return float i_uc: Verdadeira corrente do banco (A)
+        :return float p_actual: Potência efetivamente trocada no passo (W), para balanço exato com o barramento
         """
-        # Calcula variação de energia (P = V*I)
-        energy_variation = -1 * self._v_banco * current * dt
-        # print(f'DEBUG: energy_variation = {energy_variation}')
-        
-        # Calcula nova energia
-        # print(f'DEBUG: self._stored_energy = {self._stored_energy}')
-        # print(f'DEBUG: total_energy = {self._total_energy}')
-        new_energy = self._stored_energy + energy_variation
-        # print(f'DEBUG: new_energy = {new_energy}')
-        
-        # Limita energia baseado no SoC
-        max_energy = self._total_energy * (self._SoC_max/100)
-        # print(f'DEBUG: max_energy = {max_energy}')
-        min_energy = self._total_energy * (self._SoC_min/100)
-        # print(f'DEBUG: min_energy = {min_energy}')
-        clip_energy = np.clip(new_energy, min_energy, max_energy)
-        # print(f'DEBUG: clip_energy = {clip_energy}')
-     
-        
-        p_reject = ((new_energy - clip_energy) / dt) / 1000         # Potência rejeitada (kW)
-        i_reject = ((clip_energy - new_energy) / dt) / self._v_banco
-        i_uc = current - i_reject
-        # print(f'DEBUG: p_reject = {p_reject}')
+        if self._Np == 0:
+            self._SoC = 0
+            self._v_banco = 0
+            p_reject = 0
+            i_uc = 0
+            p_actual = 0.0
+        else:
+            # Calcula variação de energia (P = V*I)
+            energy_variation = -1 * self._v_banco * current * dt
+            
+            # Calcula nova energia
+            new_energy = self._stored_energy + energy_variation
+            
+            # Limita energia baseado no SoC
+            max_energy = self._total_energy * (self._SoC_max/100)
+            min_energy = self._total_energy * (self._SoC_min/100)
+            clip_energy = np.clip(new_energy, min_energy, max_energy)     
+            
+            p_reject = -1*((new_energy - clip_energy) / dt) / 1000         # Potência rejeitada (kW)
+            i_uc = -1 * ((clip_energy - self._stored_energy) / dt) / self._v_banco
 
-        # print(f'DEBUG: i_reject = { i_reject}')
-        # Preciso recalcular a corrente para considerar a potência rejeitada
+            # Potência efetiva no passo (W): usa variação de energia para balanço exato (evita usar V_final)
+            p_actual = - (clip_energy - self._stored_energy) / dt
 
-        
-        # Atualiza estados
-        self._stored_energy = clip_energy
-        self._SoC = (clip_energy / self._total_energy) * 100
-        # print(f'DEBUG: self._SoC = {self._SoC}')
-        self._v_banco = self.energy2voltage(clip_energy, self._SoC)
-        # print(f'DEBUG: self._v_banco = {self._v_banco}')
+            # Atualiza estados
+            self._stored_energy = clip_energy
+            self._SoC = (self._stored_energy / self._total_energy) * 100
+            self._v_banco = self.energy2voltage(clip_energy, self._SoC)
+            self.i_uc = i_uc
+        return self._SoC, self._v_banco, p_reject, i_uc, p_actual
 
-        # print("-------------------------------------------------------------")
-        # sleep(1)
+    def setC_rate(self, C_rate: float) -> None:
+        """
+        Define a taxa C máxima permitida para o supercapacitor.
+        :param float C_rate: Taxa C desejada
+        """
+        if C_rate <= 0:
+            raise ValueError("A taxa C deve ser positiva.")
+        self._C_rate = C_rate
+
+
+    def getSoC(self) -> float:
+        return self._SoC
+
+
+    def verificaPotencia(self, Ed : float, dt : float) -> (float):
+        """
+        Método para verificar se o banco consegue absorver/fornecer energia
+        :param float E_d: Energia que se deseja absorver/fornecer
+        :param float dt: Tempo em segundos para se absorver a energia
+        return power: potencia máxima que pode ser gerenciada pelo 
+        """
+        # ---------------------------------------- Restrição por Estado de Carga ----------------------------------------
         
-        return self._SoC, self._v_banco, p_reject, i_uc
+        energia_maxima_absorvivel = (self._SoC_max/100) * self._total_energy - self._total_energy
+    
+        energia_minima_absorvivel = (self._SoC_min/100) * self._total_energy - self._total_energy
+
+        clip_energy = np.clip(Ed, energia_minima_absorvivel, energia_maxima_absorvivel)
+
+        # ------------------------------------------- Restrição por Corrente --------------------------------------------
+        i_max = self._C_rate * self._Cap_uc * self._Np              # Corrente máxima usando taxa C
+
+        corrente_maxima_absorvivel = i_max - self.i_uc
+        corrente_minima_absorvivel = (-1* i_max) - self.i_uc
+
+        corrente_desejada = (Ed * dt) / self._v_banco 
+
+        clip_current = np.clip(corrente_desejada, corrente_minima_absorvivel, corrente_maxima_absorvivel)
+
+        clip_energy_por_corrente = (self._v_banco * clip_current) / dt
+
+        return min([clip_energy, clip_energy_por_corrente])
